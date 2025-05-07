@@ -3,9 +3,12 @@ import bcrypt from "bcryptjs";
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
+  phone: string;
+  address: string;
   role: "admin" | "host" | "user";
   accountStatus: "active" | "suspended" | "deleted" | "pending_verification";
   createdAt: Date;
@@ -14,9 +17,12 @@ export interface IUser extends Document {
 
 const UserSchema: Schema = new Schema<IUser>(
   {
-    name: { type: String, required: true, trim: true },
+    firstName: { type: String, required: true, trim: true },
+    lastName: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
+    password: { type: String, required: true,trim: true },
+    phone: { type: String, required: true, trim: true},
+    address: { type: String, required: true, trim: true },
     role: { type: String, enum: ["admin", "host", "user"], default: "user" },
     accountStatus: {
       type: String,

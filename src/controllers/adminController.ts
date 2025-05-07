@@ -53,7 +53,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
  */
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { role, accountStatus } = req.body;
+    const { firstName, lastName, phone, address, role, accountStatus } = req.body;
 
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -61,6 +61,10 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (phone) user.phone = phone;
+    if (address) user.address = address;
     if (role) user.role = role;
     if (accountStatus) user.accountStatus = accountStatus;
 
@@ -70,8 +74,11 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       message: '✅ User updated successfully',
       user: {
         id: user._id,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
+        phone: user.phone,
+        address: user.address,
         role: user.role,
         accountStatus: user.accountStatus,
       },
@@ -91,7 +98,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
  */
 export const createHost = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password } = req.body;
+    const { firstName, lastName, email, password, phone, address } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -102,9 +109,12 @@ export const createHost = async (req: Request, res: Response): Promise<void> => 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newHost = new User({
-      name,
+      firstName,
+      lastName,
       email,
       password: hashedPassword,
+      phone,
+      address,
       role: 'host',
       accountStatus: 'active',
     });
@@ -115,8 +125,11 @@ export const createHost = async (req: Request, res: Response): Promise<void> => 
       message: '✅ Host created successfully',
       host: {
         id: newHost._id,
-        name: newHost.name,
+        firstName: newHost.firstName,
+        lastName: newHost.lastName,
         email: newHost.email,
+        phone: newHost.phone,
+        address: newHost.address,
         role: newHost.role,
         accountStatus: newHost.accountStatus,
       },
@@ -153,7 +166,7 @@ export const getAllHosts = async (req: Request, res: Response): Promise<void> =>
  */
 export const updateHost = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, accountStatus } = req.body;
+    const { firstName, lastName, email, phone, address, accountStatus } = req.body;
 
     const host = await User.findOne({ _id: req.params.id, role: 'host' });
     if (!host) {
@@ -161,8 +174,11 @@ export const updateHost = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (name) host.name = name;
+    if (firstName) host.firstName = firstName;
+    if (lastName) host.lastName = lastName;
     if (email) host.email = email;
+    if (phone) host.phone = phone;
+    if (address) host.address = address;
     if (accountStatus) host.accountStatus = accountStatus;
 
     await host.save();
@@ -171,8 +187,11 @@ export const updateHost = async (req: Request, res: Response): Promise<void> => 
       message: '✅ Host updated successfully',
       host: {
         id: host._id,
-        name: host.name,
+        firstName: host.firstName,
+        lastName: host.lastName,
         email: host.email,
+        phone: host.phone,
+        address: host.address,
         accountStatus: host.accountStatus,
       },
     });

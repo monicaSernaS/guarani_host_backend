@@ -9,7 +9,7 @@ import { generateToken } from "../utils/generateToken";
  */
 export const register = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { firstName, email, password, role } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -18,7 +18,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     const newUser = new User({
-      name,
+      firstName,
       email,
       password,
       role: User,
@@ -33,7 +33,7 @@ export const register = async (req: Request, res: Response) => {
       message: "✅ User registered successfully",
       user: {
         id: newUser._id,
-        name: newUser.name,
+        firstName: newUser.firstName,
         email: newUser.email,
         role: newUser.role,
         accountStatus: newUser.accountStatus,
@@ -78,7 +78,7 @@ export const login = async (req: Request, res: Response) => {
       message: "✅Login successful",
       user: {
         id: user._id,
-        name: user.name,
+        firstName: user.firstName,
         email: user.email,
         role: user.role,
         accountStatus: user.accountStatus,
