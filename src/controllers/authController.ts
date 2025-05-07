@@ -1,6 +1,6 @@
-import { Request, Response } from 'express';
-import { User } from '../models/User';
-import { generateToken } from '../utils/generateToken';
+import { Request, Response } from "express";
+import { User } from "../models/User";
+import { generateToken } from "../utils/generateToken";
 
 /**
  * @desc    Register a new user
@@ -11,30 +11,26 @@ export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // 1. Check if email is already in use
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already in use' });
+      res.status(400).json({ message: "❗Email already in use" });
+      return;
     }
 
-    // 2. Create the new user
     const newUser = new User({
       name,
       email,
       password,
       role,
-      accountStatus: 'pending_verification',
+      accountStatus: "pending_verification",
     });
 
-    // 3. Save user to DB (password gets hashed via pre-save hook)
     await newUser.save();
 
-    // 4. Generate JWT token
     const token = generateToken(newUser._id.toString());
 
-    // 5. Send response
     res.status(201).json({
-      message: 'User registered successfully',
+      message: "✅ User registered successfully",
       user: {
         id: newUser._id,
         name: newUser.name,
@@ -45,8 +41,8 @@ export const register = async (req: Request, res: Response) => {
       token,
     });
   } catch (error) {
-    console.error('Error in register:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("❌ Error in register:", error);
+    res.status(500).json({ message: "❌ Server error" });
   }
 };
 
@@ -59,29 +55,27 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Find user by email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: "❗Invalid credentials" });
+      return;
     }
 
-    // 2. Compare passwords
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: "❗Invalid credentials" });
+      return;
     }
 
-    // 3. Check account status
-    if (user.accountStatus === 'suspended') {
-      return res.status(403).json({ message: 'Account is suspended' });
+    if (user.accountStatus === "suspended") {
+      res.status(403).json({ message: "🚫Account is suspended" });
+      return;
     }
 
-    // 4. Generate JWT token
     const token = generateToken(user._id.toString());
 
-    // 5. Send response
     res.status(200).json({
-      message: 'Login successful',
+      message: "✅Login successful",
       user: {
         id: user._id,
         name: user.name,
@@ -92,7 +86,7 @@ export const login = async (req: Request, res: Response) => {
       token,
     });
   } catch (error) {
-    console.error('Error in login:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("❌ Error in login:", error);
+    res.status(500).json({ message: "❌ Server error" });
   }
 };
