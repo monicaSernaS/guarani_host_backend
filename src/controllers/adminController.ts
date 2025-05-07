@@ -68,4 +68,83 @@ export const getAllHosts = async (req: Request, res: Response): Promise<void> =>
     }
   };
 
+  /**
+ * @desc    Get all users
+ * @route   GET /api/admin/users
+ * @access  Private (admin only)
+ */
+export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const users = await User.find().select('-password');
+  
+      res.status(200).json({
+        message: '✅ Users retrieved successfully',
+        total: users.length,
+        users,
+      });
+    } catch (error) {
+      console.error('❌ Error fetching users:', error);
+      res.status(500).json({ message: '❌ Server error' });
+    }
+  };
+
+  /**
+ * @desc    Delete user by ID
+ * @route   DELETE /api/admin/users/:id
+ * @access  Private (admin only)
+ */
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = await User.findByIdAndDelete(req.params.id);
+  
+      if (!user) {
+        res.status(404).json({ message: '🚫 User not found' });
+        return;
+      }
+  
+      res.status(200).json({
+        message: '✅ User deleted successfully',
+        userId: user._id,
+      });
+    } catch (error) {
+      console.error('❌ Error deleting user:', error);
+      res.status(500).json({ message: '❌ Server error' });
+    }
+  };
+  
+  /**
+ * @desc    Update user role or account status
+ * @route   PATCH /api/admin/users/:id
+ * @access  Private (admin only)
+ */
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { role, accountStatus } = req.body;
+  
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        res.status(404).json({ message: '🚫 User not found' });
+        return;
+      }
+  
+      if (role) user.role = role;
+      if (accountStatus) user.accountStatus = accountStatus;
+  
+      await user.save();
+  
+      res.status(200).json({
+        message: '✅ User updated successfully',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          accountStatus: user.accountStatus,
+        },
+      });
+    } catch (error) {
+      console.error('❌ Error updating user:', error);
+      res.status(500).json({ message: '❌ Server error' });
+    }
+  };
   
