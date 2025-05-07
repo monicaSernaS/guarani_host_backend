@@ -21,7 +21,7 @@ export const register = async (req: Request, res: Response) => {
       name,
       email,
       password,
-      role,
+      role: User,
       accountStatus: "pending_verification",
     });
 
