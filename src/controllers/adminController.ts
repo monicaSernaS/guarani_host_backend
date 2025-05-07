@@ -47,3 +47,25 @@ export const createHost = async (req: Request, res: Response) => {
     res.status(500).json({ message: '❌Server error' });
   }
 };
+
+/**
+ * @desc    Get all hosts
+ * @route   GET /api/admin/hosts
+ * @access  Private (admin only)
+ */
+export const getAllHosts = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const hosts = await User.find({ role: 'host' }).select('-password');
+  
+      res.status(200).json({
+        message: '✅ Hosts retrieved successfully',
+        total: hosts.length,
+        hosts,
+      });
+    } catch (error) {
+      console.error('❌ Error fetching hosts:', error);
+      res.status(500).json({ message: '❌ Server error' });
+    }
+  };
+
+  
