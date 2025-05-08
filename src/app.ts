@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import propertyRoutes from "./routes/propertyRoutes";  // Importa las rutas de propiedad
 
 // Load environment variables from .env file
 dotenv.config();
@@ -26,5 +27,7 @@ app.use("/api/auth", authRoutes);
 // Admin dashboard routes (users & hosts management)
 app.use("/api/admin", adminRoutes);
 
-export default app;
+// Property-related routes (create, read, update, delete properties)
+app.use("/api/admin", propertyRoutes);  // Ruta de propiedades
 
+export default app;
