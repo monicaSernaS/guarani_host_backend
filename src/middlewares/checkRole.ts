@@ -1,13 +1,23 @@
 import { Request, Response, NextFunction } from "express";
 
-export const checkRole = (role: "admin" | "host" | "user") => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || req.user.role !== role) {
-      res
-        .status(403)
-        .json({ message: "Access denied: insufficient permissions" });
+type UserRole = "admin" | "host" | "user";
+
+/**
+ * Middleware to allow access only to specific roles.
+ * @param roles Allowed roles for the route
+ */
+export const checkRole = (...roles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ message: "❌ Unauthorized: no user in request" });
       return;
     }
+
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({ message: "❌ Access denied: insufficient permissions" });
+      return;
+    }
+
     next();
   };
 };

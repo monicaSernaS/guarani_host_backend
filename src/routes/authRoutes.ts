@@ -3,10 +3,20 @@ import { register, login } from "../controllers/authController";
 
 const router = express.Router();
 
-// @route   POST /api/auth/register
+/* ========================= AUTH ROUTES ========================= */
+
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user
+ * @access  Public
+ */
 router.post("/register", register);
 
-// @route   POST /api/auth/login
+/**
+ * @route   POST /api/auth/login
+ * @desc    Log in an existing user
+ * @access  Public
+ */
 router.post("/login", login);
 
 export default router;
