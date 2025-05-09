@@ -1,12 +1,14 @@
 import { IUser } from "../../models/User";
+import { Multer } from "multer";
 
-/**
- * Extend Express Request interface to include authenticated user
- */
 declare global {
   namespace Express {
     interface Request {
       user?: IUser;
+      files?: {
+        images?: Express.Multer.File[];
+        paymentImage?: Express.Multer.File[];
+      };
     }
   }
 }

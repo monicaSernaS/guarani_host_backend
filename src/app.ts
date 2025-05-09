@@ -4,30 +4,28 @@ import dotenv from "dotenv";
 
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
-import propertyRoutes from "./routes/propertyRoutes";  // Importa las rutas de propiedad
+import propertyRoutes from "./routes/propertyRoutes";
+import tourRoutes from "./routes/tourPackageRoutes";
+import bookingRoutes from "./routes/bookingRoutes";
+import hostRoutes from "./routes/hostRoutes";
 
-// Load environment variables from .env file
+
 dotenv.config();
 
 const app = express();
 
-/* ========================= MIDDLEWARES ========================= */
-
-// Enable CORS for all routes
+// Middlewares
 app.use(cors());
-
-// Parse incoming JSON requests
 app.use(express.json());
+app.use("/uploads", express.static("uploads")); // Serve local uploads if needed
 
-/* ========================= ROUTES ========================= */
-
-// Auth-related routes (login & register)
+// Routes
 app.use("/api/auth", authRoutes);
-
-// Admin dashboard routes (users & hosts management)
 app.use("/api/admin", adminRoutes);
-
-// Property-related routes (create, read, update, delete properties)
-app.use("/api/admin", propertyRoutes);  // Ruta de propiedades
+app.use("/api/admin", propertyRoutes);
+app.use("/api/admin", tourRoutes);
+app.use("/api", bookingRoutes); //both admin/host
+app.use("/api/host", hostRoutes);
 
 export default app;
+

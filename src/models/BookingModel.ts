@@ -1,30 +1,19 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { BookingStatus, PaymentStatus } from "../@types/express/enums";
 
-// Enum to define the status of the booking
-enum BookingStatus {
-  PENDING = "pending",
-  CONFIRMED = "confirmed",
-  CANCELLED = "cancelled",
-}
-
-// Enum to define the payment status
-enum PaymentStatus {
-  PENDING = "pending",
-  PAID = "paid",
-}
-
-interface IBooking extends Document {
-  user: mongoose.Schema.Types.ObjectId; // User who made the booking
-  property?: mongoose.Schema.Types.ObjectId; // Optional: Property being booked
-  tourPackage?: mongoose.Schema.Types.ObjectId; // Optional: Tour package being booked
-  checkIn: Date; 
+// Interface for Booking model
+export interface IBooking extends Document {
+  user: mongoose.Schema.Types.ObjectId;
+  property?: mongoose.Schema.Types.ObjectId;
+  tourPackage?: mongoose.Schema.Types.ObjectId;
+  checkIn: Date;
   checkOut: Date;
-  status: BookingStatus; // Booking status (pending, confirmed, cancelled)
+  status: BookingStatus;
   guests: number;
-  totalPrice: number; 
-  paymentStatus: PaymentStatus; // Payment status (pending, paid)
-  paymentDetails?: string; // Payment details (transfer reference number, amount)
-  paymentImage?: string; // Optional: URL of the payment image (if the user uploads it)
+  totalPrice: number;
+  paymentStatus: PaymentStatus;
+  paymentDetails?: string;
+  paymentImages?: string[];
 }
 
 const BookingSchema: Schema = new Schema<IBooking>(
@@ -34,12 +23,20 @@ const BookingSchema: Schema = new Schema<IBooking>(
     tourPackage: { type: mongoose.Schema.Types.ObjectId, ref: "TourPackage" },
     checkIn: { type: Date, required: true },
     checkOut: { type: Date, required: true },
-    status: { type: String, enum: Object.values(BookingStatus), default: BookingStatus.PENDING },
+    status: {
+      type: String,
+      enum: Object.values(BookingStatus),
+      default: BookingStatus.PENDING,
+    },
     guests: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
-    paymentStatus: { type: String, enum: Object.values(PaymentStatus), default: PaymentStatus.PENDING },
-    paymentDetails: { type: String }, // Optional: Details of the payment
-    paymentImage: { type: String }, // Optional: Image of the payment transfer (Cloudinary URL)
+    paymentStatus: {
+      type: String,
+      enum: Object.values(PaymentStatus),
+      default: PaymentStatus.PENDING,
+    },
+    paymentDetails: { type: String, trim: true },
+    paymentImages: { type: [String] },
   },
   { timestamps: true }
 );

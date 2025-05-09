@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { User } from "../models/User";
 import bcrypt from "bcrypt";
-import { generateToken } from "../utils/generateToken";
+import { generateToken } from "../utils/generateToken";  
 
 /* ======================== AUTH CONTROLLERS ======================== */
 
@@ -32,17 +32,17 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       firstName,
       lastName,
       email,
-      password,
+      password,  
       phone,
       address,
-      role: role?.toLowerCase() || "user",
-      accountStatus: "pending_verification",
+      role: role?.toLowerCase() || "user",  // Default role is 'user' 
+      accountStatus: "pending_verification",  
     });
 
     await newUser.save();
 
     // 4. Generate JWT token
-    const token = generateToken(newUser._id.toString());
+    const token = generateToken(newUser._id.toString());  
 
     // 5. Send the response with the new user data and token
     res.status(201).json({
@@ -57,14 +57,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         role: newUser.role,
         accountStatus: newUser.accountStatus,
       },
-      token,
+      token,  // JWT token returned to the user
     });
   } catch (error: any) {
     console.error("❌ Error in register:", error);
+
+    // Handling validation errors
     if (error.name === "ValidationError") {
       res.status(400).json({ message: error.message, errors: error.errors });
       return;
     }
+
+    // Internal server error handling
     res.status(500).json({ message: "❌ Server error" });
   }
 };
@@ -84,7 +88,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // 2. Check if the user exists
+    // 2. Check if the user exists in the database
     const user = await User.findOne({ email });
     if (!user) {
       res.status(401).json({ message: "❗ Invalid credentials" });
@@ -92,7 +96,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // 3. Compare the provided password with the stored hash
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await user.comparePassword(password);  
     if (!isMatch) {
       res.status(401).json({ message: "❗ Invalid credentials" });
       return;
@@ -105,7 +109,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // 5. Generate JWT token
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user._id.toString());  
 
     // 6. Send the response with the user data and token
     res.status(200).json({
@@ -120,7 +124,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         accountStatus: user.accountStatus,
       },
-      token,
+      token,  // JWT token returned to the user
     });
   } catch (error) {
     console.error("❌ Error in login:", error);

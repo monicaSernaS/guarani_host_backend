@@ -18,11 +18,17 @@ const router = express.Router();
  * @desc    Create a new property
  * @access  Private (admin and host)
  */
-router.post("/properties", protect, checkRole("admin", "host"), upload.array("images"), createProperty);
+router.post(
+  "/properties",
+  protect,
+  checkRole("admin", "host"),
+  upload.fields([{ name: "images", maxCount: 10 }]), // Accept multiple images
+  createProperty
+);
 
 /**
  * @route   GET /api/admin/properties
- * @desc    Get all properties (admin) or properties of a specific host
+ * @desc    Get all properties (admin) or host's own properties
  * @access  Private (admin and host)
  */
 router.get("/properties", protect, checkRole("admin", "host"), getProperties);
@@ -36,7 +42,7 @@ router.patch("/properties/:id", protect, checkRole("admin"), updateProperty);
 
 /**
  * @route   DELETE /api/admin/properties/:id
- * @desc    Delete a property
+ * @desc    Delete a property and its images
  * @access  Private (admin only)
  */
 router.delete("/properties/:id", protect, checkRole("admin"), deleteProperty);
