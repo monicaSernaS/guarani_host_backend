@@ -37,6 +37,34 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
       }
     }
 
+    // Validate required fields
+    if (!title || !description || !address || !city || !pricePerNight || !checkIn || !checkOut || !guests) {
+      res.status(400).json({ message: "❗ Missing required fields" });
+      return;
+    }
+
+    // Validate pricePerNight and guests
+    if (pricePerNight <= 0) {
+     res.status(400).json({ message: "❗ Price per night must be greater than zero" });
+      return;
+    }
+
+    if (guests <= 0) {
+      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
+      return ;
+    }
+
+    // Validate checkIn/checkOut dates
+    if (new Date(checkIn).getTime() < Date.now()) {
+      res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
+      return ;
+    }
+
+    if (new Date(checkOut).getTime() < Date.now()) {
+      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
+       return;
+    }
+    
     // Upload property images to Cloudinary
     let imageUrls: string[] = [];
     if (req.files && "images" in req.files) {
@@ -84,6 +112,12 @@ export const getProperties = async (req: Request, res: Response): Promise<void> 
     const hostId = req.query.hostId as string;
     const isAdmin = req.user?.role === "admin";
 
+      // Validate hostId for admin
+    if (!isAdmin && !hostId) {
+      res.status(400).json({ message: "❗ Missing hostId for non-admin users" });
+      return;
+    }
+
     const properties = isAdmin
       ? await Property.find().populate("host")
       : await Property.find({ host: hostId });
@@ -123,6 +157,17 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
     if (!property) {
       res.status(404).json({ message: "🚫 Property not found" });
       return;
+    }
+
+    // Validate pricePerNight and guests
+    if (pricePerNight <= 0) {
+      res.status(400).json({ message: "❗ Price per night must be greater than zero" });
+      return;
+    }
+
+    if (guests <= 0) {
+      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
+      return ;
     }
 
     // Update fields if new data is provided
