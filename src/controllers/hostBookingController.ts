@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Booking } from "../models/BookingModel";
 import { Property } from "../models/PropertyModel";
 import { TourPackage } from "../models/TourPackageModel";
+import { BookingStatus, PaymentStatus } from "../@types/express/enums";
 
 /**
  * @desc    Host retrieves all bookings related to their properties or tour packages
@@ -11,7 +12,6 @@ import { TourPackage } from "../models/TourPackageModel";
 export const getHostBookingSummary = async (req: Request, res: Response): Promise<void> => {
   try {
     const hostId = req.user?._id;
-
     if (!hostId || req.user?.role !== "host") {
       res.status(403).json({ message: "🚫 Unauthorized" });
       return;
@@ -51,8 +51,8 @@ export const updateBookingStatusByHost = async (
 ): Promise<void> => {
   try {
     const hostId = req.user?._id;
-    if (!hostId) {
-      res.status(401).json({ message: "❌ Unauthorized" });
+    if (!hostId || req.user?.role !== "host") {
+      res.status(401).json({ message: "❌ Unauthorized. Not a host" });
       return;
     }
 
@@ -64,16 +64,41 @@ export const updateBookingStatusByHost = async (
       return;
     }
 
+    // Validate status and paymentStatus
+    if (status && !Object.values(BookingStatus).includes(status)) {
+      res.status(400).json({ message: "❗ Invalid booking status value" });
+      return;
+    }
+
+    if (paymentStatus && !Object.values(PaymentStatus).includes(paymentStatus)) {
+      res.status(400).json({ message: "❗ Invalid payment status value" });
+      return;
+    }
+
+    // Validate checkIn/checkOut dates
+    if (checkIn && new Date(checkIn).getTime() < Date.now()) {
+      res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
+      return;
+    }
+
+    if (checkOut && new Date(checkOut).getTime() < Date.now()) {
+      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
+      return;
+    }
+  
+    // Validate if the booking belongs to the host's property or tour package
     const [property, tour] = await Promise.all([
       booking.property ? Property.findOne({ _id: booking.property, host: hostId }) : null,
       booking.tourPackage ? TourPackage.findOne({ _id: booking.tourPackage, host: hostId }) : null,
     ]);
 
+    // Check if the property or tour belongs to the host
     if (!property && !tour) {
       res.status(403).json({ message: "🚫 Not authorized to update this booking" });
       return;
     }
 
+    // Update booking details
     if (status) booking.status = status;
     if (paymentStatus) booking.paymentStatus = paymentStatus;
     if (checkIn) booking.checkIn = checkIn;
