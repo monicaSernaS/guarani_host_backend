@@ -16,6 +16,12 @@ export const exportBookingsAsCSV = async (req: Request, res: Response): Promise<
       .populate("tourPackage", "title price")
       .lean();
 
+  // Ensure that bookings are not empty
+    if (bookings.length === 0) {
+      res.status(404).json({ message: "❗ No bookings found to export" });
+      return;
+    }
+
     const data = bookings.map((b: any) => ({
       BookingID: b._id.toString(),
       User: `${b.user?.firstName || "-"} ${b.user?.lastName || "-"}`,
@@ -55,6 +61,12 @@ export const exportBookingsAsPDF = async (req: Request, res: Response): Promise<
       .populate("property", "title city")
       .populate("tourPackage", "title price")
       .lean();
+
+  // Ensure that bookings are not empty
+    if (bookings.length === 0) {
+     res.status(404).json({ message: "❗ No bookings found to export" });
+     return;
+    }
 
     const doc = new PDFDocument({ margin: 30, size: "A4" });
 
