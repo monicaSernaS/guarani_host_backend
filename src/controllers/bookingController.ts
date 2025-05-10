@@ -20,6 +20,27 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Check if checkIn and checkOut are valid dates
+    if (new Date(checkIn).getTime() < Date.now()) {
+     res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
+     return;
+    }
+
+    if (new Date(checkOut).getTime() < Date.now()) {
+      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
+      return;
+    }
+
+    if (guests <= 0) {
+      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
+      return;
+    }
+
+    if (totalPrice <= 0) {
+      res.status(400).json({ message: "❗ Total price must be greater than zero" });
+      return;
+    }
+
     const bookingData: any = {
       user: userId,
       checkIn,
@@ -80,6 +101,11 @@ export const getBookings = async (req: Request, res: Response): Promise<void> =>
     const bookings = await Booking.find(isAdmin ? {} : { user: userId })
       .populate("property")
       .populate("tourPackage");
+
+      if (bookings.length === 0) {
+      res.status(404).json({ message: "❗ No bookings found" });
+      return;
+    }
 
     res.status(200).json({
       message: "✅ Bookings retrieved successfully",
@@ -142,6 +168,12 @@ export const updateBooking = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+     // Validate input data
+    if (guests && guests <= 0) {
+      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
+      return ;
+    }
+    
     booking.checkIn = checkIn || booking.checkIn;
     booking.checkOut = checkOut || booking.checkOut;
     booking.guests = guests || booking.guests;
