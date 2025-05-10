@@ -20,6 +20,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({ message: "❗ Invalid email format" });
+      return;
+    }
+
     // 2. Check if the user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -27,12 +34,22 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Validate password strength (at least 8 characters, 1 uppercase, 1 lowercase, 1 number)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      res.status(400).json({
+        message: "❗ Password must be at least 8 characters and contain at least one letter and one number",
+      });
+      return;
+    }
+
     // 3. Create the new user
+    const hashedPassword = await bcrypt.hash(password, 10);  // Hash the password
     const newUser = new User({
       firstName,
       lastName,
       email,
-      password,  
+      password: hashedPassword,  
       phone,
       address,
       role: role?.toLowerCase() || "user",  // Default role is 'user' 
@@ -88,6 +105,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({ message: "❗ Invalid email format" });
+      return;
+    }
+
     // 2. Check if the user exists in the database
     const user = await User.findOne({ email });
     if (!user) {
@@ -96,7 +120,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // 3. Compare the provided password with the stored hash
-    const isMatch = await user.comparePassword(password);  
+    const isMatch = await bcrypt.compare(password, user.password);  
     if (!isMatch) {
       res.status(401).json({ message: "❗ Invalid credentials" });
       return;

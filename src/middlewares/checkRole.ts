@@ -5,6 +5,7 @@ type UserRole = "admin" | "host" | "user";
 /**
  * Middleware to allow access only to specific roles.
  * @param roles Allowed roles for the route
+ * @returns Middleware function that checks if the user's role is allowed
  */
 export const checkRole = (...roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {

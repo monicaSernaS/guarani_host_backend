@@ -3,6 +3,7 @@ import { Booking } from "../models/BookingModel";
 
 /**
  * Middleware to ensure the user is the owner of the booking or admin.
+ * @returns Middleware function that checks if the user is the booking owner or has the admin role.
  */
 export const checkBookingOwnership = async (
   req: Request,

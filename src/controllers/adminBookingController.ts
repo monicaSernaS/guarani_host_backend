@@ -14,10 +14,19 @@ export const getAllBookingsForAdmin = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Pagination
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10; // Default limit is 10
+    const skip = (page - 1) * limit;
+    
     const bookings = await Booking.find()
       .populate("user", "-password")
       .populate("property")
-      .populate("tourPackage");
+      .populate("tourPackage")
+      .skip(skip)
+      .limit(limit);
+
+    const totalBookings = await Booking.countDocuments();
 
     res.status(200).json({
       message: "✅ All bookings retrieved successfully",
@@ -41,6 +50,17 @@ export const updateBookingByAdmin = async (
 ): Promise<void> => {
   try {
     const { status, paymentStatus, checkIn, checkOut } = req.body;
+
+    // Validate dates if provided
+    if (checkIn && new Date(checkIn).getTime() < Date.now()) {
+     res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
+     return;
+    }
+
+    if (checkOut && new Date(checkOut).getTime() < Date.now()) {
+      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
+    return;
+    }
 
     const booking = await Booking.findById(req.params.id).populate("user", "email");
     if (!booking) {
@@ -89,9 +109,11 @@ export const updateBookingPaymentStatus = async (
   try {
     const { paymentStatus } = req.body;
 
-    if (!paymentStatus) {
-      res.status(400).json({ message: "❗ Payment status is required" });
-      return;
+    // Validate payment status
+    const validStatuses = ["pending", "paid", "refunded"];
+    if (!validStatuses.includes(paymentStatus)) {
+     res.status(400).json({ message: "❗ Invalid payment status" });
+     return;
     }
 
     const booking = await Booking.findById(req.params.id).populate("user", "email");
