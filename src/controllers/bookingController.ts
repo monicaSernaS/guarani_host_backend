@@ -1,9 +1,25 @@
+// bookingController.ts
 import { Request, Response } from "express";
 import { Booking } from "../models/BookingModel";
 import { IUser } from "../models/User";
 import { uploadImagesToCloudinary } from "../helpers/uploadImagesToCloudinary";
 import { deleteImageFromCloudinary } from "../helpers/deleteImageFromCloudinary";
 import { sendEmail } from "../utils/emailService";
+import { PaymentStatus, BookingStatus } from "../@types/express/enums";
+import { validateCheckInOut } from "../helpers/validateBooking";
+
+/**
+ * @desc    Helper to validate check-in and check-out dates
+ */
+const ensureValidDates = (checkIn: string, checkOut: string) => {
+  const now = Date.now();
+  const inDate = new Date(checkIn).getTime();
+  const outDate = new Date(checkOut).getTime();
+
+  if (inDate < now) throw new Error("❗ Check-in date cannot be in the past");
+  if (outDate < now) throw new Error("❗ Check-out date cannot be in the past");
+  if (inDate > outDate) throw new Error("❗ Check-out cannot be before check-in");
+};
 
 /**
  * @desc    Create a new booking
@@ -20,40 +36,30 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Check if checkIn and checkOut are valid dates
-    if (new Date(checkIn).getTime() < Date.now()) {
-     res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
-     return;
-    }
-
-    if (new Date(checkOut).getTime() < Date.now()) {
-      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
+    if (!property && !tourPackage) {
+      res.status(400).json({ message: "❗ A property or tour package must be selected" });
       return;
     }
 
-    if (guests <= 0) {
-      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
-      return;
-    }
+    ensureValidDates(checkIn, checkOut);
 
-    if (totalPrice <= 0) {
-      res.status(400).json({ message: "❗ Total price must be greater than zero" });
+    if (guests <= 0 || totalPrice <= 0) {
+      res.status(400).json({ message: "❗ Guests and total price must be greater than zero" });
       return;
     }
 
     const bookingData: any = {
       user: userId,
+      property,
+      tourPackage,
       checkIn,
       checkOut,
       guests,
       totalPrice,
-      status: "pending",
-      paymentStatus: "pending",
+      paymentStatus: PaymentStatus.PENDING,
       paymentDetails: paymentDetails?.trim() || "",
+      status: BookingStatus.PENDING,
     };
-
-    if (property) bookingData.property = property;
-    if (tourPackage) bookingData.tourPackage = tourPackage;
 
     if (req.files && "paymentImage" in req.files) {
       const paymentImageFiles = req.files["paymentImage"] as Express.Multer.File[];
@@ -64,17 +70,13 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
     const newBooking = new Booking(bookingData);
     await newBooking.save();
 
-    // Send confirmation email
     if (req.user?.email) {
       await sendEmail(
         req.user.email,
         "Booking Confirmation - GuaraniHost",
-        `
-          <h2>✅ Booking confirmed!</h2>
-          <p>Hello ${req.user.firstName},</p>
-          <p>Your booking has been successfully created from <strong>${new Date(checkIn).toLocaleDateString()}</strong> to <strong>${new Date(checkOut).toLocaleDateString()}</strong>.</p>
-          <p>Thank you for choosing GuaraniHost.</p>
-        `
+        `<h2>✅ Booking confirmed!</h2>
+         <p>Hello ${req.user.firstName},</p>
+         <p>Your booking from <strong>${new Date(checkIn).toLocaleDateString()}</strong> to <strong>${new Date(checkOut).toLocaleDateString()}</strong> is confirmed.</p>`
       );
     }
 
@@ -82,14 +84,14 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
       message: "✅ Booking created successfully",
       booking: newBooking,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error creating booking:", error);
-    res.status(500).json({ message: "❌ Server error" });
+    res.status(400).json({ message: error.message || "❌ Server error" });
   }
 };
 
 /**
- * @desc    Get all bookings (user sees own, admin sees all)
+ * @desc    Get all bookings (user or admin)
  * @route   GET /api/bookings
  * @access  Private (user or admin)
  */
@@ -102,7 +104,7 @@ export const getBookings = async (req: Request, res: Response): Promise<void> =>
       .populate("property")
       .populate("tourPackage");
 
-      if (bookings.length === 0) {
+    if (!bookings.length) {
       res.status(404).json({ message: "❗ No bookings found" });
       return;
     }
@@ -118,7 +120,7 @@ export const getBookings = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
- * @desc    Get a booking summary by ID (user, host or admin)
+ * @desc    Get booking summary
  * @route   GET /api/bookings/:id/summary
  * @access  Private
  */
@@ -145,7 +147,7 @@ export const getBookingSummary = async (req: Request, res: Response): Promise<vo
 };
 
 /**
- * @desc    Update booking details and manage payment images
+ * @desc    Update booking
  * @route   PATCH /api/bookings/:id
  * @access  Private (user or admin)
  */
@@ -168,12 +170,11 @@ export const updateBooking = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-     // Validate input data
     if (guests && guests <= 0) {
-      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
-      return ;
+      res.status(400).json({ message: "❗ Guests must be greater than zero" });
+      return;
     }
-    
+
     booking.checkIn = checkIn || booking.checkIn;
     booking.checkOut = checkOut || booking.checkOut;
     booking.guests = guests || booking.guests;
@@ -184,7 +185,7 @@ export const updateBooking = async (req: Request, res: Response): Promise<void> 
     if (Array.isArray(removedPaymentImages)) {
       for (const imageUrl of removedPaymentImages) {
         await deleteImageFromCloudinary(imageUrl);
-        booking.paymentImages = booking.paymentImages?.filter(url => url !== imageUrl) || [];
+        booking.paymentImages = booking.paymentImages?.filter((url) => url !== imageUrl) || [];
       }
     }
 
@@ -196,17 +197,14 @@ export const updateBooking = async (req: Request, res: Response): Promise<void> 
 
     await booking.save();
 
-    // Send update notification email
     const user = booking.user as unknown as IUser;
     await sendEmail(
       user.email,
-        "Booking Updated - GuaraniHost",
-        `
-          <h2>🔄 Your booking has been updated</h2>
-          <p>Hello ${user.firstName},</p>
-          <p>Your booking scheduled from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been updated successfully.</p>
-        `
-      );
+      "Booking Updated - GuaraniHost",
+      `<h2>🔄 Booking Updated</h2>
+       <p>Hello ${user.firstName},</p>
+       <p>Your booking from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been updated.</p>`
+    );
 
     res.status(200).json({
       message: "✅ Booking updated successfully",
@@ -219,7 +217,7 @@ export const updateBooking = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
- * @desc    Cancel a booking and delete its images from Cloudinary
+ * @desc    Cancel a booking
  * @route   DELETE /api/bookings/:id
  * @access  Private (user or admin)
  */
@@ -237,20 +235,18 @@ export const cancelBooking = async (req: Request, res: Response): Promise<void> 
         await deleteImageFromCloudinary(imageUrl);
       }
     }
+
     await booking.deleteOne();
 
-    // Send cancellation email
     const user = booking.user as unknown as IUser;
     await sendEmail(
       user.email,
-        "Booking Canceled - GuaraniHost",
-        `
-          <h2>❌ Your booking has been canceled</h2>
-          <p>Hello ${user.firstName},</p>
-          <p>Your booking scheduled from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been successfully canceled.</p>
-        `
-      );
-    
+      "Booking Canceled - GuaraniHost",
+      `<h2>❌ Booking Canceled</h2>
+       <p>Hello ${user.firstName},</p>
+       <p>Your booking from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been canceled.</p>`
+    );
+
     res.status(200).json({
       message: "✅ Booking canceled successfully",
       bookingId: booking._id,
@@ -262,34 +258,34 @@ export const cancelBooking = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
- * @desc    Admin filter bookings by checkIn and checkOut range
- * @route   GET /api/admin/bookings/filter?from=YYYY-MM-DD&to=YYYY-MM-DD
- * @access  Private (admin only)
+ * @desc    Admin or host filters bookings by check-in and check-out dates
+ * @route   GET /api/bookings/filter?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * @access  Private (admin or host)
  */
-export const adminFilterBookingsByDateRange = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const filterBookingsByDateRange = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { from, to } = req.query;
     const role = req.user?.role;
-
-    if (role !== "admin") {
+    if (!role || !["admin", "host"].includes(role)) {
       res.status(403).json({ message: "🚫 Access denied" });
       return;
     }
 
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+
     if (!from || !to) {
-      res.status(400).json({ message: "❗ 'from' and 'to' dates are required in query" });
+      res.status(400).json({ message: "❗ 'from' and 'to' dates are required" });
       return;
     }
 
-    const fromDate = new Date(from as string);
-    const toDate = new Date(to as string);
+    ensureValidDates(from, to);
+
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
 
     const bookings = await Booking.find({
       checkIn: { $gte: fromDate },
-      checkOut: { $lte: toDate }
+      checkOut: { $lte: toDate },
     })
       .populate("user", "firstName lastName email")
       .populate("property")
@@ -300,7 +296,7 @@ export const adminFilterBookingsByDateRange = async (
       from: fromDate.toISOString().split("T")[0],
       to: toDate.toISOString().split("T")[0],
       total: bookings.length,
-      bookings
+      bookings,
     });
   } catch (error) {
     console.error("❌ Error filtering bookings by date:", error);

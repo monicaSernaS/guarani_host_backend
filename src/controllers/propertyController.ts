@@ -45,26 +45,26 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
 
     // Validate pricePerNight and guests
     if (pricePerNight <= 0) {
-     res.status(400).json({ message: "❗ Price per night must be greater than zero" });
+      res.status(400).json({ message: "❗ Price per night must be greater than zero" });
       return;
     }
 
     if (guests <= 0) {
       res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
-      return ;
+      return;
     }
 
     // Validate checkIn/checkOut dates
     if (new Date(checkIn).getTime() < Date.now()) {
       res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
-      return ;
+      return;
     }
 
     if (new Date(checkOut).getTime() < Date.now()) {
       res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
-       return;
+      return;
     }
-    
+
     // Upload property images to Cloudinary
     let imageUrls: string[] = [];
     if (req.files && "images" in req.files) {
@@ -112,7 +112,7 @@ export const getProperties = async (req: Request, res: Response): Promise<void> 
     const hostId = req.query.hostId as string;
     const isAdmin = req.user?.role === "admin";
 
-      // Validate hostId for admin
+    // Validate hostId for admin
     if (!isAdmin && !hostId) {
       res.status(400).json({ message: "❗ Missing hostId for non-admin users" });
       return;
@@ -133,7 +133,7 @@ export const getProperties = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
- * @desc    Update property details
+ * @desc    Update property details, including images
  * @route   PATCH /api/admin/properties/:id
  * @access  Private (admin only)
  */
@@ -151,6 +151,7 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
       amenities,
       paymentStatus,
       paymentDetails,
+      removedImages,
     } = req.body;
 
     const property = await Property.findById(req.params.id);
@@ -167,7 +168,7 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
 
     if (guests <= 0) {
       res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
-      return ;
+      return;
     }
 
     // Update fields if new data is provided
@@ -182,6 +183,21 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
     property.amenities = amenities || property.amenities;
     property.paymentStatus = paymentStatus || property.paymentStatus;
     property.paymentDetails = paymentDetails?.trim() || property.paymentDetails;
+
+    // Remove old images from Cloudinary
+    if (Array.isArray(removedImages)) {
+      for (const imageUrl of removedImages) {
+        await deleteImageFromCloudinary(imageUrl);
+        property.imageUrls = property.imageUrls?.filter((url) => url !== imageUrl) || [];
+      }
+    }
+
+    // Upload new images to Cloudinary if provided
+    if (req.files && "images" in req.files) {
+      const imageFiles = req.files["images"] as Express.Multer.File[];
+      const newImageUrls = await uploadImagesToCloudinary(imageFiles);
+      property.imageUrls = [...(property.imageUrls || []), ...newImageUrls];
+    }
 
     await property.save();
 

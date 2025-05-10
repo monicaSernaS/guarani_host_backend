@@ -47,7 +47,7 @@ router.patch(
   "/tour-packages/:id",
   protect,
   checkRole("admin"),
-  upload.fields([{ name: "images", maxCount: 10 }]),
+  upload.fields([{ name: "images", maxCount: 10 }]),  // Accept multiple images
   updateTourPackage
 );
 
