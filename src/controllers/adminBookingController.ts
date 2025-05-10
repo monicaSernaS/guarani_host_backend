@@ -1,8 +1,5 @@
 import { Request, Response } from "express";
 import { Booking } from "../models/BookingModel";
-import { IUser } from "../models/User"; 
-import { sendEmail } from "../utils/emailService"; 
-
 
 /**
  * @desc    Admin retrieves all bookings with full population
@@ -14,19 +11,10 @@ export const getAllBookingsForAdmin = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Pagination
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10; // Default limit is 10
-    const skip = (page - 1) * limit;
-    
     const bookings = await Booking.find()
       .populate("user", "-password")
       .populate("property")
-      .populate("tourPackage")
-      .skip(skip)
-      .limit(limit);
-
-    const totalBookings = await Booking.countDocuments();
+      .populate("tourPackage");
 
     res.status(200).json({
       message: "✅ All bookings retrieved successfully",
@@ -51,18 +39,7 @@ export const updateBookingByAdmin = async (
   try {
     const { status, paymentStatus, checkIn, checkOut } = req.body;
 
-    // Validate dates if provided
-    if (checkIn && new Date(checkIn).getTime() < Date.now()) {
-     res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
-     return;
-    }
-
-    if (checkOut && new Date(checkOut).getTime() < Date.now()) {
-      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
-    return;
-    }
-
-    const booking = await Booking.findById(req.params.id).populate("user", "email");
+    const booking = await Booking.findById(req.params.id);
     if (!booking) {
       res.status(404).json({ message: "🚫 Booking not found" });
       return;
@@ -74,18 +51,6 @@ export const updateBookingByAdmin = async (
     if (checkOut) booking.checkOut = checkOut;
 
     await booking.save();
-
-    // Notify user
-    const user = booking.user as unknown as IUser;
-    await sendEmail(
-      user.email,
-      "Booking Updated by Admin - GuaraniHost",
-      `
-        <h2>🛠️ Your booking has been updated</h2>
-        <p>Hello ${user.firstName},</p>
-        <p>Your booking from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been updated by an admin.</p>
-      `
-    );
 
     res.status(200).json({
       message: "✅ Booking updated by admin",
@@ -109,14 +74,12 @@ export const updateBookingPaymentStatus = async (
   try {
     const { paymentStatus } = req.body;
 
-    // Validate payment status
-    const validStatuses = ["pending", "paid", "refunded"];
-    if (!validStatuses.includes(paymentStatus)) {
-     res.status(400).json({ message: "❗ Invalid payment status" });
-     return;
+    if (!paymentStatus) {
+      res.status(400).json({ message: "❗ Payment status is required" });
+      return;
     }
 
-    const booking = await Booking.findById(req.params.id).populate("user", "email");
+    const booking = await Booking.findById(req.params.id);
     if (!booking) {
       res.status(404).json({ message: "🚫 Booking not found" });
       return;
@@ -124,18 +87,6 @@ export const updateBookingPaymentStatus = async (
 
     booking.paymentStatus = paymentStatus;
     await booking.save();
-
-     // Notify user
-    const user = booking.user as unknown as IUser;
-    await sendEmail(
-      user.email,
-      "Payment Status Updated - GuaraniHost",
-      `
-        <h2>💰 Payment status updated</h2>
-        <p>Hello ${user.firstName},</p>
-        <p>Your payment status for the booking from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been updated to <strong>${paymentStatus}</strong>.</p>
-      `
-    );
 
     res.status(200).json({
       message: "✅ Payment status updated successfully",
@@ -157,23 +108,11 @@ export const deleteBookingByAdmin = async (
   res: Response
 ): Promise<void> => {
   try {
-    const booking = await Booking.findByIdAndDelete(req.params.id).populate("user", "email");
+    const booking = await Booking.findByIdAndDelete(req.params.id);
     if (!booking) {
       res.status(404).json({ message: "🚫 Booking not found" });
       return;
     }
-
-    // Notify user
-    const user = booking.user as unknown as IUser;
-    await sendEmail(
-      user.email,
-      "Booking Deleted - GuaraniHost",
-      `
-        <h2>❌ Your booking has been deleted</h2>
-        <p>Hello ${user.firstName},</p>
-        <p>Your booking scheduled from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been deleted by an administrator.</p>
-      `
-    );
 
     res.status(200).json({
       message: "✅ Booking deleted successfully",

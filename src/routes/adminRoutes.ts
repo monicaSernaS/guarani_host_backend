@@ -20,24 +20,28 @@ const router = express.Router();
 /**
  * @route   POST /api/admin/create-host
  * @desc    Admin creates a new host
+ * @access  Private (admin only)
  */
 router.post('/create-host', protect, checkRole('admin'), createHost);
 
 /**
  * @route   GET /api/admin/hosts
  * @desc    Admin retrieves all hosts
+ * @access  Private (admin only)
  */
 router.get('/hosts', protect, checkRole('admin'), getAllHosts);
 
 /**
  * @route   PATCH /api/admin/hosts/:id
  * @desc    Admin updates a host by ID
+ * @access  Private (admin only)
  */
 router.patch('/hosts/:id', protect, checkRole('admin'), updateHost);
 
 /**
  * @route   DELETE /api/admin/hosts/:id
  * @desc    Admin deletes a host by ID
+ * @access  Private (admin only)
  */
 router.delete('/hosts/:id', protect, checkRole('admin'), deleteHost);
 
@@ -46,18 +50,21 @@ router.delete('/hosts/:id', protect, checkRole('admin'), deleteHost);
 /**
  * @route   GET /api/admin/users
  * @desc    Admin retrieves all users
+ * @access  Private (admin only)
  */
 router.get('/users', protect, checkRole('admin'), getAllUsers);
 
 /**
  * @route   PATCH /api/admin/users/:id
  * @desc    Admin updates a user by ID
+ * @access  Private (admin only)
  */
 router.patch('/users/:id', protect, checkRole('admin'), updateUser);
 
 /**
  * @route   DELETE /api/admin/users/:id
  * @desc    Admin deletes a user by ID
+ * @access  Private (admin only)
  */
 router.delete('/users/:id', protect, checkRole('admin'), deleteUser);
 
