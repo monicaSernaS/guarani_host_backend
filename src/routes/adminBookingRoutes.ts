@@ -6,6 +6,9 @@ import {
   updateBookingByAdmin,
   updateBookingPaymentStatus,
   deleteBookingByAdmin,
+  filterBookingsByDateRange,
+  filterBookingsByStatus,
+  filterBookingsByType,
 } from "../controllers/adminBookingController";
 
 const router = express.Router();
@@ -40,6 +43,29 @@ router.patch("/bookings/:id/payment-status", protect, checkRole("admin"), update
  */
 router.delete("/bookings/:id", protect, checkRole("admin"), deleteBookingByAdmin);
 
+/**
+ * @route   GET /api/admin/bookings/filter/date
+ * @desc    Filter bookings by check-in and check-out range
+ * @query   from=YYYY-MM-DD&to=YYYY-MM-DD
+ * @access  Private (admin only)
+ */
+router.get("/bookings/filter/date", protect, checkRole("admin"), filterBookingsByDateRange);
+
+/**
+ * @route   GET /api/admin/bookings/filter/status
+ * @desc    Filter bookings by status or payment status
+ * @query   status=pending|confirmed|cancelled
+ * @query   paymentStatus=paid|pending|refunded
+ * @access  Private (admin only)
+ */
+router.get("/bookings/filter/status", protect, checkRole("admin"), filterBookingsByStatus);
+
+/**
+ * @route   GET /api/admin/bookings/filter/type
+ * @desc    Filter bookings by type: property or tour
+ * @query   type=property|tour
+ * @access  Private (admin only)
+ */
+router.get("/bookings/filter/type", protect, checkRole("admin"), filterBookingsByType);
+
 export default router;
-
-

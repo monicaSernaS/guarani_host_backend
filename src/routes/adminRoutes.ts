@@ -1,11 +1,9 @@
 import express from 'express';
 import {
-  // Hosts management
   createHost,
   getAllHosts,
   updateHost,
   deleteHost,
-  // Users management
   getAllUsers,
   updateUser,
   deleteUser,

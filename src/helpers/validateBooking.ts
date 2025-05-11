@@ -1,4 +1,3 @@
-// helpers/validateBooking.ts
 import { PaymentStatus } from "../@types/express/enums";
 
 /**
