@@ -1,3 +1,11 @@
+// Enum for Account Status
+export enum AccountStatus {
+  ACTIVE = "active",                // The account is active and in good standing.
+  SUSPENDED = "suspended",          // The account has been suspended due to policy violations or other reasons.
+  DELETED = "deleted",              // The account has been permanently deleted.
+  PENDING_VERIFICATION = "pending_verification", // The account is awaiting verification (e.g., email or admin review).
+}
+
 // Enum for Booking Status
 export enum BookingStatus {
   PENDING = "pending",     // The booking is pending and not yet confirmed.
