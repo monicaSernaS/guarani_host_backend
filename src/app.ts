@@ -8,6 +8,7 @@ import propertyRoutes from "./routes/propertyRoutes";
 import tourRoutes from "./routes/tourPackageRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 import hostBookingRoutes from "./routes/hostBookingRoutes"; 
+import userRoutes from "./routes/userRoutes"; 
 
 
 dotenv.config();
@@ -34,5 +35,8 @@ app.use("/api/bookings", bookingRoutes);      // create, update, cancel, get sum
 
 // Host-specific booking routes
 app.use("/api/host/bookings", hostBookingRoutes); // host filters, exports, summaries
+
+// User routes (profile update)
+app.use("/api/users", userRoutes);           // update profile, get user info
 
 export default app;
