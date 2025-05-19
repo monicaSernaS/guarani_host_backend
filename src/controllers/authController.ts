@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       phone,
       address,
       role: role?.toLowerCase() || "user",  // Default role is 'user' 
-      accountStatus: "pending_verification",  
+      accountStatus: "active",  
     });
 
     await newUser.save();
@@ -118,6 +118,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ message: "❗ Invalid credentials" });
       return;
     }
+
+    console.log("Password provided:", password);
+    console.log("Password in DB (hash):", user.password);
 
     // 3. Compare the provided password with the stored hash
     const isMatch = await bcrypt.compare(password, user.password);  
