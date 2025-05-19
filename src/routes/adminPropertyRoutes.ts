@@ -11,38 +11,32 @@ import { upload } from "../config/multerConfig";
 
 const router = express.Router();
 
-/* ========================= PROPERTY ROUTES ========================= */
+/* ==================== ADMIN PROPERTY ROUTES ==================== */
 
 /**
  * @route   POST /api/admin/properties
- * @desc    Create a new property
- * @access  Private (admin and host)
+ * @desc    Create a new property (admin only)
+ * @access  Private (admin only)
  */
-router.post(
-  "/properties",
-  protect,
-  checkRole("admin", "host"),
-  upload.fields([{ name: "images", maxCount: 10 }]), // Accept multiple images
-  createProperty
-);
+router.post("/properties", protect, checkRole("admin"), upload.fields([{ name: "images", maxCount: 10 }]), createProperty);
 
 /**
  * @route   GET /api/admin/properties
- * @desc    Get all properties (admin) or host's own properties
- * @access  Private (admin and host)
+ * @desc    Get all properties (admin only)
+ * @access  Private (admin only)
  */
-router.get("/properties", protect, checkRole("admin", "host"), getProperties);
+router.get("/properties", protect, checkRole("admin"), getProperties);
 
 /**
  * @route   PATCH /api/admin/properties/:id
- * @desc    Update a property
+ * @desc    Update a property (admin only)
  * @access  Private (admin only)
  */
-router.patch("/properties/:id", protect, checkRole("admin"), updateProperty);
+router.patch("/properties/:id", protect, checkRole("admin"), upload.fields([{ name: "images", maxCount: 10 }]), updateProperty);
 
 /**
  * @route   DELETE /api/admin/properties/:id
- * @desc    Delete a property and its images
+ * @desc    Delete a property and its images (admin only)
  * @access  Private (admin only)
  */
 router.delete("/properties/:id", protect, checkRole("admin"), deleteProperty);

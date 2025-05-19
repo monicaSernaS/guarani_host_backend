@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 // Route imports
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
-import propertyRoutes from "./routes/propertyRoutes";
+import adminPropertyRoutes from "./routes/adminPropertyRoutes";
 import tourRoutes from "./routes/tourPackageRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 import hostBookingRoutes from "./routes/hostBookingRoutes"; 
@@ -28,7 +28,7 @@ app.use("/api/auth", authRoutes);
 
 // Admin routes (users, hosts, bookings, export, etc.)
 app.use("/api/admin", adminRoutes);           // Handles admins, users, hosts
-app.use("/api/admin", propertyRoutes);        // CRUD for properties
+app.use("/api/admin", adminPropertyRoutes);        // CRUD for properties
 app.use("/api/admin", tourRoutes);            // CRUD for tour packages
 
 // Booking routes (user + admin access)

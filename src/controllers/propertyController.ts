@@ -1,14 +1,13 @@
 import { Request, Response } from "express";
 import { Property } from "../models/PropertyModel";
-import { User } from "../models/User";
 import { uploadImagesToCloudinary } from "../helpers/uploadImagesToCloudinary";
 import { deleteImageFromCloudinary } from "../helpers/deleteImageFromCloudinary";
 import { PaymentStatus, PropertyStatus } from "../@types/express/enums";
 
 /**
- * @desc    Create a new property
+ * @desc    Create a new property (admin only)
  * @route   POST /api/admin/properties
- * @access  Private (admin and host)
+ * @access  Private (admin only)
  */
 export const createProperty = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -24,44 +23,36 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
       amenities,
       paymentStatus,
       paymentDetails,
+      host, // Admin must specify which host owns the property
     } = req.body;
 
-    const hostId = req.user?._id;
-
-    // Validate host user
-    if (req.user?.role === "host") {
-      const hostUser = await User.findById(hostId);
-      if (!hostUser || hostUser.role !== "host") {
-        res.status(403).json({ message: "🚫 Host not authorized" });
-        return;
-      }
-    }
-
     // Validate required fields
-    if (!title || !description || !address || !city || !pricePerNight || !checkIn || !checkOut || !guests) {
+    if (
+      !title || !description || !address || !city || !pricePerNight || !checkIn ||
+      !checkOut || !guests || !host
+    ) {
       res.status(400).json({ message: "❗ Missing required fields" });
       return;
     }
 
-    // Validate pricePerNight and guests
-    if (pricePerNight <= 0) {
-      res.status(400).json({ message: "❗ Price per night must be greater than zero" });
+    // Validate numeric fields
+    if (+pricePerNight <= 0 || +guests <= 0) {
+      res.status(400).json({ message: "❗ Price and guests must be greater than zero" });
       return;
     }
 
-    if (guests <= 0) {
-      res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
+    // Validate dates
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const now = new Date();
+
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+      res.status(400).json({ message: "❗ Invalid check-in or check-out date" });
       return;
     }
 
-    // Validate checkIn/checkOut dates
-    if (new Date(checkIn).getTime() < Date.now()) {
-      res.status(400).json({ message: "❗ Check-in date cannot be in the past" });
-      return;
-    }
-
-    if (new Date(checkOut).getTime() < Date.now()) {
-      res.status(400).json({ message: "❗ Check-out date cannot be in the past" });
+    if (checkInDate < now || checkOutDate < now || checkOutDate <= checkInDate) {
+      res.status(400).json({ message: "❗ Invalid check-in/check-out range" });
       return;
     }
 
@@ -79,11 +70,11 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
       address,
       city,
       pricePerNight,
-      checkIn,
-      checkOut,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
       guests,
       amenities,
-      host: hostId,
+      host,
       imageUrls,
       paymentStatus: paymentStatus || PaymentStatus.PENDING,
       paymentDetails: paymentDetails?.trim() || "",
@@ -103,25 +94,13 @@ export const createProperty = async (req: Request, res: Response): Promise<void>
 };
 
 /**
- * @desc    Get all properties (admin) or host's own properties
+ * @desc    Get all properties (admin only)
  * @route   GET /api/admin/properties
- * @access  Private (admin and host)
+ * @access  Private (admin only)
  */
-export const getProperties = async (req: Request, res: Response): Promise<void> => {
+export const getProperties = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const hostId = req.query.hostId as string;
-    const isAdmin = req.user?.role === "admin";
-
-    // Validate hostId for admin
-    if (!isAdmin && !hostId) {
-      res.status(400).json({ message: "❗ Missing hostId for non-admin users" });
-      return;
-    }
-
-    const properties = isAdmin
-      ? await Property.find().populate("host")
-      : await Property.find({ host: hostId });
-
+    const properties = await Property.find().populate("host");
     res.status(200).json({
       message: "✅ Properties retrieved successfully",
       properties,
@@ -133,7 +112,7 @@ export const getProperties = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
- * @desc    Update property details, including images
+ * @desc    Update property details (admin only)
  * @route   PATCH /api/admin/properties/:id
  * @access  Private (admin only)
  */
@@ -160,43 +139,61 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Validate pricePerNight and guests
-    if (pricePerNight <= 0) {
+    // Validate updated numeric fields
+    if (pricePerNight && +pricePerNight <= 0) {
       res.status(400).json({ message: "❗ Price per night must be greater than zero" });
       return;
     }
-
-    if (guests <= 0) {
+    if (guests && +guests <= 0) {
       res.status(400).json({ message: "❗ Number of guests must be greater than zero" });
       return;
     }
 
-    // Update fields if new data is provided
-    property.title = title || property.title;
-    property.description = description || property.description;
-    property.address = address || property.address;
-    property.city = city || property.city;
-    property.pricePerNight = pricePerNight || property.pricePerNight;
-    property.checkIn = checkIn || property.checkIn;
-    property.checkOut = checkOut || property.checkOut;
-    property.guests = guests || property.guests;
-    property.amenities = amenities || property.amenities;
-    property.paymentStatus = paymentStatus || property.paymentStatus;
-    property.paymentDetails = paymentDetails?.trim() || property.paymentDetails;
+    // Validate and apply new dates
+    const checkInDate = checkIn ? new Date(checkIn) : null;
+    const checkOutDate = checkOut ? new Date(checkOut) : null;
 
-    // Remove old images from Cloudinary
+    if (checkInDate && isNaN(checkInDate.getTime())) {
+      res.status(400).json({ message: "❗ Invalid check-in date" });
+      return;
+    }
+
+    if (checkOutDate && isNaN(checkOutDate.getTime())) {
+      res.status(400).json({ message: "❗ Invalid check-out date" });
+      return;
+    }
+
+    if (checkInDate && checkOutDate && checkOutDate <= checkInDate) {
+      res.status(400).json({ message: "❗ Check-out must be after check-in" });
+      return;
+    }
+
+    // Update fields
+    if (title) property.title = title;
+    if (description) property.description = description;
+    if (address) property.address = address;
+    if (city) property.city = city;
+    if (pricePerNight) property.pricePerNight = pricePerNight;
+    if (checkInDate) property.checkIn = checkInDate;
+    if (checkOutDate) property.checkOut = checkOutDate;
+    if (guests) property.guests = guests;
+    if (amenities) property.amenities = amenities;
+    if (paymentStatus) property.paymentStatus = paymentStatus;
+    if (paymentDetails) property.paymentDetails = paymentDetails?.trim();
+
+    // Remove images
     if (Array.isArray(removedImages)) {
-      for (const imageUrl of removedImages) {
-        await deleteImageFromCloudinary(imageUrl);
-        property.imageUrls = property.imageUrls?.filter((url) => url !== imageUrl) || [];
+      for (const url of removedImages) {
+        await deleteImageFromCloudinary(url);
+        property.imageUrls = property.imageUrls.filter((img) => img !== url);
       }
     }
 
-    // Upload new images to Cloudinary if provided
+    // Upload new images
     if (req.files && "images" in req.files) {
       const imageFiles = req.files["images"] as Express.Multer.File[];
       const newImageUrls = await uploadImagesToCloudinary(imageFiles);
-      property.imageUrls = [...(property.imageUrls || []), ...newImageUrls];
+      property.imageUrls.push(...newImageUrls);
     }
 
     await property.save();
@@ -212,24 +209,22 @@ export const updateProperty = async (req: Request, res: Response): Promise<void>
 };
 
 /**
- * @desc    Delete a property and remove its images from Cloudinary
+ * @desc    Delete a property and its images (admin only)
  * @route   DELETE /api/admin/properties/:id
  * @access  Private (admin only)
  */
 export const deleteProperty = async (req: Request, res: Response): Promise<void> => {
   try {
-    const property = await Property.findByIdAndDelete(req.params.id);
+    const property = await Property.findById(req.params.id);
     if (!property) {
       res.status(404).json({ message: "🚫 Property not found" });
       return;
     }
 
-    // Delete all associated images from Cloudinary
-    if (property.imageUrls && property.imageUrls.length > 0) {
-      for (const imageUrl of property.imageUrls) {
-        await deleteImageFromCloudinary(imageUrl);
-      }
-    }
+    // Delete all images
+    await Promise.all(property.imageUrls.map(url => deleteImageFromCloudinary(url)));
+
+    await property.deleteOne();
 
     res.status(200).json({
       message: "✅ Property deleted successfully",
@@ -240,3 +235,4 @@ export const deleteProperty = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ message: "❌ Server error" });
   }
 };
+
