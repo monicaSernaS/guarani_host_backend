@@ -35,7 +35,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Validate password strength (at least 8 characters, 1 uppercase, 1 lowercase, 1 number)
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(password)) {
       res.status(400).json({
         message: "❗ Password must be at least 8 characters and contain at least one letter and one number",
