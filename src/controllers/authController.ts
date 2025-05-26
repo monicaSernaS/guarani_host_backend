@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { User } from "../models/User";
-import bcrypt from "bcrypt";
-import { generateToken } from "../utils/generateToken";  
+import { generateToken } from "../utils/generateToken";
+import { AccountStatus } from "../@types/express/enums";
 
 /* ======================== AUTH CONTROLLERS ======================== */
 
@@ -14,7 +14,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, email, password, phone, address, role } = req.body;
 
-    // 1. Verify that all required fields are provided
+    // Validate required fields
     if (!firstName || !lastName || !email || !password || !phone || !address) {
       res.status(400).json({ message: "❗ All fields are required" });
       return;
@@ -27,41 +27,39 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // 2. Check if the user already exists
+    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       res.status(400).json({ message: "❗ Email already in use" });
       return;
     }
 
-    // Validate password strength (at least 8 characters, 1 uppercase, 1 lowercase, 1 number)
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(password)) {
       res.status(400).json({
-        message: "❗ Password must be at least 8 characters and contain at least one letter and one number",
+        message:
+          "❗ Password must contain at least 8 characters, one uppercase, one lowercase, and one number.",
       });
       return;
     }
 
-    // 3. Create the new user
-    const hashedPassword = await bcrypt.hash(password, 10);  // Hash the password
+    // Create new user (password will be hashed via pre-save hook)
     const newUser = new User({
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,  
-      phone,
-      address,
-      role: role?.toLowerCase() || "user",  // Default role is 'user' 
-      accountStatus: "active",  
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      password: password.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      role: role?.toLowerCase() || "user",
+      accountStatus: AccountStatus.ACTIVE,
     });
 
     await newUser.save();
 
-    // 4. Generate JWT token
-    const token = generateToken(newUser._id.toString());  
+    const token = generateToken(newUser._id.toString());
 
-    // 5. Send the response with the new user data and token
     res.status(201).json({
       message: "✅ User registered successfully",
       user: {
@@ -74,24 +72,16 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         role: newUser.role,
         accountStatus: newUser.accountStatus,
       },
-      token,  // JWT token returned to the user
+      token,
     });
   } catch (error: any) {
     console.error("❌ Error in register:", error);
-
-    // Handling validation errors
-    if (error.name === "ValidationError") {
-      res.status(400).json({ message: error.message, errors: error.errors });
-      return;
-    }
-
-    // Internal server error handling
     res.status(500).json({ message: "❌ Server error" });
   }
 };
 
 /**
- * @desc    Login a user
+ * @desc    Log in an existing user
  * @route   POST /api/auth/login
  * @access  Public
  */
@@ -99,46 +89,44 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // 1. Verify that both email and password are provided
+    // Validate input
     if (!email || !password) {
       res.status(400).json({ message: "❗ Email and password are required" });
       return;
     }
 
-    // Validate email format
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email)) {
-      res.status(400).json({ message: "❗ Invalid email format" });
-      return;
-    }
-
-    // 2. Check if the user exists in the database
+    // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
       res.status(401).json({ message: "❗ Invalid credentials" });
       return;
     }
 
-    console.log("Password provided:", password);
-    console.log("Password in DB (hash):", user.password);
-
-    // 3. Compare the provided password with the stored hash
-    const isMatch = await bcrypt.compare(password, user.password);  
+    // Compare passwords using model method
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       res.status(401).json({ message: "❗ Invalid credentials" });
       return;
     }
 
-    // 4. Check if the account is suspended
-    if (user.accountStatus === "suspended") {
+    // Check account status
+    const status = user.accountStatus?.toLowerCase();
+    if (status === AccountStatus.SUSPENDED) {
       res.status(403).json({ message: "🚫 Account is suspended" });
       return;
     }
+    if (status === AccountStatus.DELETED) {
+      res.status(403).json({ message: "🚫 Account has been deleted" });
+      return;
+    }
+    if (status === AccountStatus.PENDING_VERIFICATION) {
+      res.status(403).json({ message: "⚠️ Account is pending verification" });
+      return;
+    }
 
-    // 5. Generate JWT token
-    const token = generateToken(user._id.toString());  
+    // Generate JWT token
+    const token = generateToken(user._id.toString());
 
-    // 6. Send the response with the user data and token
     res.status(200).json({
       message: "✅ Login successful",
       user: {
@@ -151,7 +139,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role: user.role,
         accountStatus: user.accountStatus,
       },
-      token,  // JWT token returned to the user
+      token,
     });
   } catch (error) {
     console.error("❌ Error in login:", error);

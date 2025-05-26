@@ -147,10 +147,10 @@ export const deleteAdmin = async (req: Request, res: Response): Promise<void> =>
  */
 export const createHost = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { firstName, lastName, email, password, phone } = req.body;
+    const { firstName, lastName, email, password, phone, address } = req.body;
 
     // Validating required fields
-    if (!firstName || !lastName || !email || !password || !phone) {
+    if (!firstName || !lastName || !email || !password || !phone || !address) {
       res.status(400).json({ message: "❗ All fields are required" });
       return;
     }
@@ -169,6 +169,7 @@ export const createHost = async (req: Request, res: Response): Promise<void> => 
       email,
       password,
       phone,
+      address,
       role: "host", // Assign role as 'host'
     });
     
