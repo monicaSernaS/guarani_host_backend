@@ -27,6 +27,12 @@ export const getHostProperties = async (req: Request, res: Response): Promise<vo
  */
 export const createHostProperty = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Ensure the host is authenticated
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "🚫 Unauthorized" });
+      return;
+    }
+
     const {
       title,
       description,
@@ -41,19 +47,19 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       paymentDetails,
     } = req.body;
 
-    const hostId = req.user?._id;
-
-    // Required fields
+    // Validate required fields
     if (!title || !description || !address || !city || !pricePerNight || !checkIn || !checkOut || !guests) {
       res.status(400).json({ message: "❗ Missing required fields" });
       return;
     }
 
+    // Validate numeric fields
     if (+pricePerNight <= 0 || +guests <= 0) {
       res.status(400).json({ message: "❗ Price and guests must be greater than 0" });
       return;
     }
 
+    // Validate date range
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
@@ -61,12 +67,21 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    // Upload images
-    const imageUrls =
-      req.files && "images" in req.files
-        ? await uploadImagesToCloudinary(req.files["images"])
+    // Upload image files to Cloudinary
+    const imageFiles =
+      req.files && typeof req.files === "object" && "images" in req.files
+        ? (req.files["images"] as Express.Multer.File[])
         : [];
 
+    const imageUrls = await uploadImagesToCloudinary(imageFiles);
+
+    // Validate at least one image is uploaded
+    if (!imageUrls.length) {
+      res.status(400).json({ message: "❗ At least one image is required" });
+      return;
+    }
+
+    // Create new property
     const newProperty = new Property({
       title,
       description,
@@ -77,13 +92,14 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       checkOut: checkOutDate,
       guests,
       amenities,
-      host: hostId,
+      host: req.user._id,
       imageUrls,
       paymentStatus: paymentStatus || PaymentStatus.PENDING,
       paymentDetails: paymentDetails?.trim() || "",
       status: PropertyStatus.AVAILABLE,
     });
 
+    // Save property to DB
     await newProperty.save();
 
     res.status(201).json({ message: "✅ Property created", property: newProperty });
@@ -92,6 +108,7 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
     res.status(500).json({ message: "❌ Server error" });
   }
 };
+
 
 /**
  * @desc    Update a property owned by the host
