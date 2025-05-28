@@ -2,7 +2,7 @@
 
 **GuaraníHost** is a RESTful API built with Node.js, Express, TypeScript and MongoDB. It powers the vacation rental platform by managing authentication, users, properties, bookings, tour packages, and payments.
 
-🔗 [![Frontend Repo](https://img.shields.io/badge/🌐%20Frontend-GuaraníHost-blueviolet?style=for-the-badge)]((https://github.com/ivanmartinezsanchez/guarani_host_frontend)
+[![Frontend Repo](https://img.shields.io/badge/🌐%20Frontend-GuaraníHost-blueviolet?style=for-the-badge)](https://github.com/ivanmartinezsanchez/guarani_host_frontend)
 
 ## 🚀 Features
 
