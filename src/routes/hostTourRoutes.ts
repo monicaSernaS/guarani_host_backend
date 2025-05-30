@@ -7,7 +7,7 @@ import {
   createHostTour,
   updateHostTour,
   deleteHostTour,
-} from '../controllers/HostTourController'
+} from '../controllers/hostTourController'
 
 const router = express.Router()
 

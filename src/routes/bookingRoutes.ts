@@ -4,7 +4,7 @@ import {
   getBookings,
   updateBooking,
   cancelBooking,
-  getBookingSummary,
+  getBookingById,
   filterBookingsByDateRange
 } from "../controllers/bookingController";
 import { protect } from "../middlewares/protect";
@@ -39,7 +39,7 @@ router.get("/", protect, getBookings);
  * @desc    Get booking summary with populated details
  * @access  Private (user who made the booking, host or admin)
  */
-router.get("/:id/summary", protect, getBookingSummary);
+router.get("/:id", protect, getBookingById);
 
 /**
  * @route   PATCH /api/bookings/:id

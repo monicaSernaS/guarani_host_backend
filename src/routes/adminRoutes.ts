@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  createUser,
   createHost,
   getAllHosts,
   updateHost,
@@ -44,6 +45,13 @@ router.patch('/hosts/:id', protect, checkRole('admin'), updateHost);
 router.delete('/hosts/:id', protect, checkRole('admin'), deleteHost);
 
 /* ========================= USERS ROUTES ========================= */
+
+/**
+ * @route   POST /api/admin/users
+ * @desc    Admin creates a new user (any role)
+ * @access  Private (admin only)
+ */
+router.post('/users', protect, checkRole('admin'), createUser);
 
 /**
  * @route   GET /api/admin/users

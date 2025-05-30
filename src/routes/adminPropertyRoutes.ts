@@ -4,7 +4,7 @@ import {
   getProperties,
   updateProperty,
   deleteProperty,
-} from "../controllers/propertyController";
+} from "../controllers/adminPropertyController";
 import { protect } from "../middlewares/protect";
 import { checkRole } from "../middlewares/checkRole";
 import { upload } from "../config/multerConfig";

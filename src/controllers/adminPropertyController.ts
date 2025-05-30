@@ -5,79 +5,12 @@ import { deleteImageFromCloudinary } from "../helpers/deleteImageFromCloudinary"
 import { PropertyStatus } from "../@types/express/enums";
 
 /**
- * @desc    Get all properties created by the current host
- * @route   GET /api/host/properties
- * @access  Private (host only)
+ * @desc    Create a new property (admin only)
+ * @route   POST /api/admin/properties
+ * @access  Private (admin only)
  */
-export const getHostProperties = async (req: Request, res: Response): Promise<void> => {
+export const createProperty = async (req: Request, res: Response): Promise<void> => {
   try {
-    const hostId = req.user?._id;
-    
-    if (!hostId) {
-      res.status(401).json({ message: "🚫 Unauthorized" });
-      return;
-    }
-
-    const properties = await Property.find({ host: hostId }).sort({ createdAt: -1 });
-    
-    res.status(200).json({ 
-      message: "✅ Host properties retrieved successfully",
-      total: properties.length,
-      properties 
-    });
-  } catch (error) {
-    console.error("❌ Error fetching host properties:", error);
-    res.status(500).json({ message: "❌ Server error while fetching properties" });
-  }
-};
-
-/**
- * @desc    Get a specific property by ID (owned by host)
- * @route   GET /api/host/properties/:id
- * @access  Private (host only)
- */
-export const getHostPropertyById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const hostId = req.user?._id;
-    
-    if (!hostId) {
-      res.status(401).json({ message: "🚫 Unauthorized" });
-      return;
-    }
-
-    const property = await Property.findOne({ 
-      _id: req.params.id, 
-      host: hostId 
-    });
-
-    if (!property) {
-      res.status(404).json({ message: "🚫 Property not found or not owned by you" });
-      return;
-    }
-
-    res.status(200).json({
-      message: "✅ Property retrieved successfully",
-      property
-    });
-  } catch (error) {
-    console.error("❌ Error fetching property:", error);
-    res.status(500).json({ message: "❌ Server error while fetching property" });
-  }
-};
-
-/**
- * @desc    Create a new property for the authenticated host
- * @route   POST /api/host/properties
- * @access  Private (host only)
- */
-export const createHostProperty = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Ensure the host is authenticated
-    if (!req.user || !req.user._id) {
-      res.status(401).json({ message: "🚫 Unauthorized" });
-      return;
-    }
-
     const {
       title,
       description,
@@ -85,21 +18,22 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       city,
       pricePerNight,
       amenities,
+      host, // Admin must specify which host owns the property
       status
     } = req.body;
 
-    console.log('Host creating property with data:', req.body);
+    console.log('Creating property with data:', req.body);
     console.log('Files received:', req.files);
 
     // Validate required fields
-    if (!title || !description || !address || !city || !pricePerNight) {
-      res.status(400).json({ message: "❗ Missing required fields: title, description, address, city, pricePerNight" });
+    if (!title || !description || !address || !city || !pricePerNight || !host) {
+      res.status(400).json({ message: "❗ Missing required fields: title, description, address, city, pricePerNight, host" });
       return;
     }
 
     // Validate numeric fields
     if (+pricePerNight <= 0) {
-      res.status(400).json({ message: "❗ Price per night must be greater than 0" });
+      res.status(400).json({ message: "❗ Price per night must be greater than zero" });
       return;
     }
 
@@ -109,7 +43,7 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    // Upload image files to Cloudinary
+    // Upload property images to Cloudinary
     let imageUrls: string[] = [];
     if (req.files && "images" in req.files) {
       const imageFiles = req.files["images"] as Express.Multer.File[];
@@ -133,7 +67,7 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       }
     }
 
-    // Create new property
+    // Create and save new property
     const newProperty = new Property({
       title: title.trim(),
       description: description.trim(),
@@ -141,17 +75,19 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
       city: city.trim(),
       pricePerNight: +pricePerNight,
       amenities: parsedAmenities,
-      host: req.user._id,
+      host,
       imageUrls,
       status: status || PropertyStatus.AVAILABLE,
     });
 
-    // Save property to DB
     await newProperty.save();
 
-    res.status(201).json({ 
-      message: "✅ Property created successfully", 
-      property: newProperty 
+    // Populate host information for response
+    await newProperty.populate('host', 'firstName lastName email');
+
+    res.status(201).json({
+      message: "✅ Property created successfully",
+      property: newProperty,
     });
   } catch (error) {
     console.error("❌ Error creating property:", error);
@@ -160,29 +96,58 @@ export const createHostProperty = async (req: Request, res: Response): Promise<v
 };
 
 /**
- * @desc    Update a property owned by the host
- * @route   PATCH /api/host/properties/:id
- * @access  Private (host only)
+ * @desc    Get all properties (admin only)
+ * @route   GET /api/admin/properties
+ * @access  Private (admin only)
  */
-export const updateHostProperty = async (req: Request, res: Response): Promise<void> => {
+export const getProperties = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const hostId = req.user?._id;
-    
-    if (!hostId) {
-      res.status(401).json({ message: "🚫 Unauthorized" });
-      return;
-    }
+    const properties = await Property.find()
+      .populate('host', 'firstName lastName email')
+      .sort({ createdAt: -1 });
 
-    const property = await Property.findOne({ 
-      _id: req.params.id, 
-      host: hostId 
+    res.status(200).json({
+      message: "✅ Properties retrieved successfully",
+      properties,
     });
+  } catch (error) {
+    console.error("❌ Error fetching properties:", error);
+    res.status(500).json({ message: "❌ Server error while fetching properties" });
+  }
+};
+
+/**
+ * @desc    Get property by ID (admin only)
+ * @route   GET /api/admin/properties/:id
+ * @access  Private (admin only)
+ */
+export const getPropertyById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const property = await Property.findById(req.params.id)
+      .populate('host', 'firstName lastName email');
 
     if (!property) {
-      res.status(404).json({ message: "🚫 Property not found or not owned by you" });
+      res.status(404).json({ message: "🚫 Property not found" });
       return;
     }
 
+    res.status(200).json({
+      message: "✅ Property retrieved successfully",
+      property,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching property:", error);
+    res.status(500).json({ message: "❌ Server error while fetching property" });
+  }
+};
+
+/**
+ * @desc    Update property details (admin only)
+ * @route   PATCH /api/admin/properties/:id
+ * @access  Private (admin only)
+ */
+export const updateProperty = async (req: Request, res: Response): Promise<void> => {
+  try {
     const {
       title,
       description,
@@ -194,12 +159,18 @@ export const updateHostProperty = async (req: Request, res: Response): Promise<v
       removedImages,
     } = req.body;
 
-    console.log('Host updating property with data:', req.body);
+    console.log('Updating property with data:', req.body);
     console.log('Files received:', req.files);
 
-    // Validate numeric fields
+    const property = await Property.findById(req.params.id);
+    if (!property) {
+      res.status(404).json({ message: "🚫 Property not found" });
+      return;
+    }
+
+    // Validate updated numeric fields
     if (pricePerNight && +pricePerNight <= 0) {
-      res.status(400).json({ message: "❗ Price per night must be greater than 0" });
+      res.status(400).json({ message: "❗ Price per night must be greater than zero" });
       return;
     }
 
@@ -241,8 +212,8 @@ export const updateHostProperty = async (req: Request, res: Response): Promise<v
     // Upload new images
     if (req.files && "images" in req.files) {
       const imageFiles = req.files["images"] as Express.Multer.File[];
-      const newImages = await uploadImagesToCloudinary(imageFiles);
-      property.imageUrls.push(...newImages);
+      const newImageUrls = await uploadImagesToCloudinary(imageFiles);
+      property.imageUrls.push(...newImageUrls);
     }
 
     // Ensure at least one image remains
@@ -253,9 +224,12 @@ export const updateHostProperty = async (req: Request, res: Response): Promise<v
 
     await property.save();
 
-    res.status(200).json({ 
-      message: "✅ Property updated successfully", 
-      property 
+    // Populate host information for response
+    await property.populate('host', 'firstName lastName email');
+
+    res.status(200).json({
+      message: "✅ Property updated successfully",
+      property,
     });
   } catch (error) {
     console.error("❌ Error updating property:", error);
@@ -264,26 +238,15 @@ export const updateHostProperty = async (req: Request, res: Response): Promise<v
 };
 
 /**
- * @desc    Delete a property owned by the host and its images
- * @route   DELETE /api/host/properties/:id
- * @access  Private (host only)
+ * @desc    Delete a property and its images (admin only)
+ * @route   DELETE /api/admin/properties/:id
+ * @access  Private (admin only)
  */
-export const deleteHostProperty = async (req: Request, res: Response): Promise<void> => {
+export const deleteProperty = async (req: Request, res: Response): Promise<void> => {
   try {
-    const hostId = req.user?._id;
-    
-    if (!hostId) {
-      res.status(401).json({ message: "🚫 Unauthorized" });
-      return;
-    }
-
-    const property = await Property.findOne({ 
-      _id: req.params.id, 
-      host: hostId 
-    });
-
+    const property = await Property.findById(req.params.id);
     if (!property) {
-      res.status(404).json({ message: "🚫 Property not found or not owned by you" });
+      res.status(404).json({ message: "🚫 Property not found" });
       return;
     }
 
@@ -301,9 +264,9 @@ export const deleteHostProperty = async (req: Request, res: Response): Promise<v
     // Delete the property
     await property.deleteOne();
 
-    res.status(200).json({ 
-      message: "✅ Property deleted successfully", 
-      propertyId: property._id 
+    res.status(200).json({
+      message: "✅ Property deleted successfully",
+      propertyId: property._id,
     });
   } catch (error) {
     console.error("❌ Error deleting property:", error);
@@ -312,32 +275,22 @@ export const deleteHostProperty = async (req: Request, res: Response): Promise<v
 };
 
 /**
- * @desc    Update property status (available/inactive)
- * @route   PATCH /api/host/properties/:id/status
- * @access  Private (host only)
+ * @desc    Update property status (admin only)
+ * @route   PATCH /api/admin/properties/:id/status
+ * @access  Private (admin only)
  */
-export const updateHostPropertyStatus = async (req: Request, res: Response): Promise<void> => {
+export const updatePropertyStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const hostId = req.user?._id;
     const { status } = req.body;
-
-    if (!hostId) {
-      res.status(401).json({ message: "🚫 Unauthorized" });
-      return;
-    }
 
     if (!status || !Object.values(PropertyStatus).includes(status)) {
       res.status(400).json({ message: "❗ Valid status is required" });
       return;
     }
 
-    const property = await Property.findOne({ 
-      _id: req.params.id, 
-      host: hostId 
-    });
-
+    const property = await Property.findById(req.params.id);
     if (!property) {
-      res.status(404).json({ message: "🚫 Property not found or not owned by you" });
+      res.status(404).json({ message: "🚫 Property not found" });
       return;
     }
 
@@ -346,11 +299,7 @@ export const updateHostPropertyStatus = async (req: Request, res: Response): Pro
 
     res.status(200).json({
       message: "✅ Property status updated successfully",
-      property: {
-        _id: property._id,
-        title: property.title,
-        status: property.status
-      }
+      property,
     });
   } catch (error) {
     console.error("❌ Error updating property status:", error);

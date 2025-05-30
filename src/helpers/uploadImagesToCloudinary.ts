@@ -38,3 +38,5 @@ export const uploadImagesToCloudinary = async (
 
   return imageUrls
 }
+
+// This helper already deletes local temp images from "uploads/" after upload

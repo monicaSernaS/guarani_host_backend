@@ -8,11 +8,13 @@ import cloudinary from "../config/cloudinaryConfig"
  */
 export const deleteImageFromCloudinary = async (imageUrl: string): Promise<void> => {
   try {
-    // Extract the public ID from the Cloudinary URL
+    // Extract public ID from URL (e.g., guaranihost/myfolder/file)
     const parts = imageUrl.split('/')
     const fileWithExtension = parts[parts.length - 1]
     const [publicIdWithoutExtension] = fileWithExtension.split('.')
-    const folder = parts.slice(parts.indexOf("guaranihost")).slice(0, -1).join('/') // e.g., guaranihost/myfolder
+
+    // Extract folder path: starts at "guaranihost"
+    const folder = parts.slice(parts.indexOf("guaranihost")).slice(0, -1).join('/')
 
     const publicId = `${folder}/${publicIdWithoutExtension}`
 
