@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 import bcrypt from "bcrypt";
+import { AccountStatus } from "../@types/express/enums";
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -10,7 +11,7 @@ export interface IUser extends Document {
   phone: string;
   address: string;
   role: "admin" | "host" | "user";
-  accountStatus: "active" | "suspended" | "deleted" | "pending_verification";
+  accountStatus: AccountStatus;
   createdAt: Date;
   comparePassword: (password: string) => Promise<boolean>;
 }
@@ -26,8 +27,8 @@ const UserSchema: Schema = new Schema<IUser>(
     role: { type: String, enum: ["admin", "host", "user"], default: "user" },
     accountStatus: {
       type: String,
-      enum: ["active", "suspended", "deleted", "pending_verification"],
-      default: "pending_verification",
+      enum:Object.values(AccountStatus),
+      default: AccountStatus.PENDING_VERIFICATION,
     },
     createdAt: { type: Date, default: Date.now },
   },

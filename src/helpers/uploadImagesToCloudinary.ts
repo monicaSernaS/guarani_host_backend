@@ -1,9 +1,10 @@
-import fs from "fs";
-import cloudinary from "../config/cloudinaryConfig";
+import fs from "fs"
+import cloudinary from "../config/cloudinaryConfig"
+import { Express } from "express"
 
 /**
  * Uploads multiple image files to Cloudinary and returns their secure URLs.
- * Cleans up local files after successful upload.
+ * Automatically deletes local files after successful upload.
  *
  * @param files - Array of multer files
  * @returns Array of secure Cloudinary URLs
@@ -11,26 +12,31 @@ import cloudinary from "../config/cloudinaryConfig";
 export const uploadImagesToCloudinary = async (
   files: Express.Multer.File[]
 ): Promise<string[]> => {
-  const imageUrls: string[] = [];
+  const imageUrls: string[] = []
 
   for (const file of files) {
     try {
+      // Upload to Cloudinary (e.g., folder: 'guaranihost/properties')
       const result = await cloudinary.uploader.upload(file.path, {
-        folder: "guaranihost/payments", // Optional: organize uploads in folders
-      });
+        folder: "guaranihost", // Optional: organize uploads
+      })
 
-      imageUrls.push(result.secure_url);
+      imageUrls.push(result.secure_url)
 
-      // Delete the local file after upload
+      // Delete the local file after successful upload
       fs.unlink(file.path, (err) => {
         if (err) {
-          console.warn(`⚠️ Could not delete local file ${file.path}:`, err);
+          console.warn(`⚠️ Could not delete local file ${file.path}:`, err)
+        } else {
+          console.log(`🧹 Temp file deleted: ${file.path}`)
         }
-      });
+      })
     } catch (error) {
-      console.error(`❌ Error uploading image ${file.originalname}:`, error);
+      console.error(`❌ Failed to upload image ${file.originalname}:`, error)
     }
   }
 
-  return imageUrls;
-};
+  return imageUrls
+}
+
+// This helper already deletes local temp images from "uploads/" after upload

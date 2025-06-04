@@ -4,7 +4,7 @@ import {
   getTourPackages,
   updateTourPackage,
   deleteTourPackage,
-} from "../controllers/tourPackageController";
+} from "../controllers/adminTourController";
 import { protect } from "../middlewares/protect";
 import { checkRole } from "../middlewares/checkRole";
 import { upload } from "../config/multerConfig";

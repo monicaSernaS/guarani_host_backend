@@ -1,3 +1,8 @@
+import dotenv from 'dotenv'
+dotenv.config()
+console.log("🌩️ Cloudinary API KEY loaded:", process.env.CLOUDINARY_API_KEY)
+
+
 import { v2 as cloudinary } from 'cloudinary';
 
 // Configuring Cloudinary with environment variables

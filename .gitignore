@@ -1,0 +1,34 @@
+# ============================
+# Node.js dependencies
+# ============================
+node_modules       # Exclude installed npm packages
+dist              # Exclude compiled output (if using TypeScript or bundlers)
+
+# ============================
+# Environment variables
+# ============================
+.env              # Exclude environment configuration files for security
+
+# ============================
+# Log files
+# ============================
+logs/             # Exclude application log directory
+*.log             # Exclude all .log files
+npm-debug.log*    # Exclude npm debug logs
+
+# ============================
+# System-specific files
+# ============================
+.DS_Store         # macOS file system metadata
+Thumbs.db         # Windows file system metadata
+
+# ============================
+# IDE/editor settings (optional)
+# ============================
+.vscode/          # Visual Studio Code settings
+.idea/            # JetBrains IDE settings
+
+# ============================
+# Uploaded media
+# ============================
+uploads/          # Exclude uploaded images or files (e.g., user-uploaded content)

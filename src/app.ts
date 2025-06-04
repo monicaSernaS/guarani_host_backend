@@ -1,38 +1,56 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-// Route imports
+
+// =============== Route Imports ===============
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
-import propertyRoutes from "./routes/propertyRoutes";
+import adminBookingRoutes from "./routes/adminBookingRoutes";
+import adminPropertyRoutes from "./routes/adminPropertyRoutes";
 import tourRoutes from "./routes/tourPackageRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
-import hostBookingRoutes from "./routes/hostBookingRoutes"; 
+import hostBookingRoutes from "./routes/hostBookingRoutes";
+import userRoutes from "./routes/userRoutes";
+import hostPropertyRoutes from "./routes/hostPropertyRoutes";
+import hostTourRoutes from "./routes/hostTourRoutes";
+import publicPropertyRoutes from "./routes/publicPropertyRoutes";
+import publicTourRoutes from "./routes/publicTourRoutes";
 
 
+// Load environment variables from .env file
 dotenv.config();
 
 const app = express();
 
-// ========================= GLOBAL MIDDLEWARES =========================
-app.use(cors());
-app.use(express.json());
-app.use("/uploads", express.static("uploads")); // Optional: serve static files
+// =============== Global Middlewares ===============
+app.use(cors()); // Enable CORS for all routes
+app.use(express.json()); // Parse incoming JSON requests
+app.use("/uploads", express.static("uploads")); // Serve uploaded images if needed
 
-// ========================= ROUTE MOUNTING =========================
+// =============== Route Mounting ===============
 
-// Auth routes (register, login, etc.)
+// Public routes - accessible to all users (visitors, users, hosts, admins)
+app.use("/api/properties", publicPropertyRoutes); // GET public properties
+app.use("/api/tours", publicTourRoutes);          // GET public tour packages
+
+// Auth routes - registration, login, password recovery
 app.use("/api/auth", authRoutes);
 
-// Admin routes (users, hosts, bookings, export, etc.)
-app.use("/api/admin", adminRoutes);           // Handles admins, users, hosts
-app.use("/api/admin", propertyRoutes);        // CRUD for properties
-app.use("/api/admin", tourRoutes);            // CRUD for tour packages
+// Admin routes - for managing users, properties, tours, and bookings
+app.use("/api/admin", adminRoutes);               // Admin-only: users & hosts
+app.use("/api/admin", adminBookingRoutes);        // Admin-only: bookings CRUD and filtering
+app.use("/api/admin", adminPropertyRoutes);       // Admin-only: properties
+app.use("/api/admin", tourRoutes);                // Admin & Host: tour packages
 
-// Booking routes (user + admin access)
-app.use("/api/bookings", bookingRoutes);      // create, update, cancel, get summary
+// General booking routes - used by user, host, and admin
+app.use("/api/bookings", bookingRoutes);          // Booking CRUD and filtering
 
-// Host-specific booking routes
-app.use("/api/host/bookings", hostBookingRoutes); // host filters, exports, summaries
+// Host-specific routes - to manage own content
+app.use("/api/host", hostBookingRoutes);          // Host: bookings & filters
+app.use("/api/host", hostPropertyRoutes);         // Host: properties CRUD
+app.use("/api/host", hostTourRoutes);             // Host: tour packages CRUD
+
+// User-specific routes - profile, preferences, etc.
+app.use("/api/users", userRoutes);                // Update profile, fetch user info
 
 export default app;
