@@ -1,5 +1,4 @@
 import { IUser } from "../../models/User";
-import { Multer } from "multer";
 
 declare global {
   namespace Express {
@@ -12,3 +11,6 @@ declare global {
     }
   }
 }
+
+// Esta línea es importante para que TypeScript reconozca este archivo como un module
+export {};
