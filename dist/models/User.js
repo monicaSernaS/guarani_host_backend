@@ -38,7 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const bcrypt_1 = __importDefault(require("bcrypt"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const enums_1 = require("../@types/express/enums");
 const UserSchema = new mongoose_1.Schema({
     firstName: { type: String, required: true, trim: true },
@@ -61,12 +61,12 @@ const UserSchema = new mongoose_1.Schema({
 UserSchema.pre("save", async function (next) {
     if (!this.isModified("password"))
         return next();
-    const salt = await bcrypt_1.default.genSalt(10);
-    this.password = await bcrypt_1.default.hash(this.password, salt);
+    const salt = await bcryptjs_1.default.genSalt(10);
+    this.password = await bcryptjs_1.default.hash(this.password, salt);
     next();
 });
 // Compare password method
 UserSchema.methods.comparePassword = async function (candidatePassword) {
-    return bcrypt_1.default.compare(candidatePassword, this.password);
+    return bcryptjs_1.default.compare(candidatePassword, this.password);
 };
 exports.User = mongoose_1.default.model("User", UserSchema);

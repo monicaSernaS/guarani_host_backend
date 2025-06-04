@@ -1,4 +1,4 @@
-import app from "../src/app";
+import app from "./app";
 import { connectDB } from "./config/db";
 
 // Define the port from environment variables or fallback to 4000

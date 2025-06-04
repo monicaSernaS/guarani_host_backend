@@ -6,31 +6,43 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
-// Route imports
+// =============== Route Imports ===============
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
-const propertyRoutes_1 = __importDefault(require("./routes/propertyRoutes"));
+const adminBookingRoutes_1 = __importDefault(require("./routes/adminBookingRoutes"));
+const adminPropertyRoutes_1 = __importDefault(require("./routes/adminPropertyRoutes"));
 const tourPackageRoutes_1 = __importDefault(require("./routes/tourPackageRoutes"));
 const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
 const hostBookingRoutes_1 = __importDefault(require("./routes/hostBookingRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
+const hostPropertyRoutes_1 = __importDefault(require("./routes/hostPropertyRoutes"));
+const hostTourRoutes_1 = __importDefault(require("./routes/hostTourRoutes"));
+const publicPropertyRoutes_1 = __importDefault(require("./routes/publicPropertyRoutes"));
+const publicTourRoutes_1 = __importDefault(require("./routes/publicTourRoutes"));
+// Load environment variables from .env file
 dotenv_1.default.config();
 const app = (0, express_1.default)();
-// ========================= GLOBAL MIDDLEWARES =========================
-app.use((0, cors_1.default)());
-app.use(express_1.default.json());
-app.use("/uploads", express_1.default.static("uploads")); // Optional: serve static files
-// ========================= ROUTE MOUNTING =========================
-// Auth routes (register, login, etc.)
+// =============== Global Middlewares ===============
+app.use((0, cors_1.default)()); // Enable CORS for all routes
+app.use(express_1.default.json()); // Parse incoming JSON requests
+app.use("/uploads", express_1.default.static("uploads")); // Serve uploaded images if needed
+// =============== Route Mounting ===============
+// Public routes - accessible to all users (visitors, users, hosts, admins)
+app.use("/api/properties", publicPropertyRoutes_1.default); // GET public properties
+app.use("/api/tours", publicTourRoutes_1.default); // GET public tour packages
+// Auth routes - registration, login, password recovery
 app.use("/api/auth", authRoutes_1.default);
-// Admin routes (users, hosts, bookings, export, etc.)
-app.use("/api/admin", adminRoutes_1.default); // Handles admins, users, hosts
-app.use("/api/admin", propertyRoutes_1.default); // CRUD for properties
-app.use("/api/admin", tourPackageRoutes_1.default); // CRUD for tour packages
-// Booking routes (user + admin access)
-app.use("/api/bookings", bookingRoutes_1.default); // create, update, cancel, get summary
-// Host-specific booking routes
-app.use("/api/host/bookings", hostBookingRoutes_1.default); // host filters, exports, summaries
-// User routes (profile update)
-app.use("/api/users", userRoutes_1.default); // update profile, get user info
+// Admin routes - for managing users, properties, tours, and bookings
+app.use("/api/admin", adminRoutes_1.default); // Admin-only: users & hosts
+app.use("/api/admin", adminBookingRoutes_1.default); // Admin-only: bookings CRUD and filtering
+app.use("/api/admin", adminPropertyRoutes_1.default); // Admin-only: properties
+app.use("/api/admin", tourPackageRoutes_1.default); // Admin & Host: tour packages
+// General booking routes - used by user, host, and admin
+app.use("/api/bookings", bookingRoutes_1.default); // Booking CRUD and filtering
+// Host-specific routes - to manage own content
+app.use("/api/host", hostBookingRoutes_1.default); // Host: bookings & filters
+app.use("/api/host", hostPropertyRoutes_1.default); // Host: properties CRUD
+app.use("/api/host", hostTourRoutes_1.default); // Host: tour packages CRUD
+// User-specific routes - profile, preferences, etc.
+app.use("/api/users", userRoutes_1.default); // Update profile, fetch user info
 exports.default = app;

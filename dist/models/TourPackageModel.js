@@ -36,26 +36,101 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TourPackage = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const enums_1 = require("../@types/express/enums");
+/**
+ * Tour Package schema definition
+ */
 const TourPackageSchema = new mongoose_1.Schema({
-    title: { type: String, required: true, trim: true },
-    description: { type: String, required: true, trim: true },
-    price: { type: Number, required: true },
+    title: {
+        type: String,
+        required: [true, 'Tour title is required'],
+        trim: true,
+        maxlength: [100, 'Title cannot exceed 100 characters']
+    },
+    description: {
+        type: String,
+        required: [true, 'Tour description is required'],
+        trim: true,
+        maxlength: [2000, 'Description cannot exceed 2000 characters']
+    },
+    price: {
+        type: Number,
+        required: [true, 'Tour price is required'],
+        min: [0, 'Price cannot be negative']
+    },
+    duration: {
+        type: Number,
+        min: [0.5, 'Duration must be at least 0.5 hours'],
+        max: [168, 'Duration cannot exceed 168 hours (1 week)'] // Max 1 week
+    },
+    maxCapacity: {
+        type: Number,
+        min: [1, 'Max capacity must be at least 1'],
+        max: [100, 'Max capacity cannot exceed 100 people']
+    },
+    location: {
+        type: String,
+        trim: true,
+        maxlength: [200, 'Location cannot exceed 200 characters']
+    },
+    amenities: {
+        type: [String],
+        default: [],
+        validate: {
+            validator: function (amenities) {
+                return amenities.length <= 30; // Max 30 amenities
+            },
+            message: 'Cannot have more than 30 amenities'
+        }
+    },
     status: {
         type: String,
-        enum: Object.values(enums_1.TourPackageStatus),
+        enum: {
+            values: Object.values(enums_1.TourPackageStatus),
+            message: 'Invalid tour package status'
+        },
         default: enums_1.TourPackageStatus.AVAILABLE,
     },
-    imageUrls: { type: [String], required: true },
     host: {
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
+        required: [true, 'Host is required'],
     },
-    paymentStatus: {
-        type: String,
-        enum: Object.values(enums_1.PaymentStatus),
-        default: enums_1.PaymentStatus.PENDING,
+    imageUrls: {
+        type: [String],
+        required: [true, 'At least one image is required'],
+        validate: {
+            validator: function (urls) {
+                return urls.length > 0 && urls.length <= 15; // 1-15 images
+            },
+            message: 'Tour package must have 1-15 images'
+        }
     },
-    paymentDetails: { type: String, trim: true },
-}, { timestamps: true });
+}, {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+// Indexes for better performance
+TourPackageSchema.index({ status: 1 });
+TourPackageSchema.index({ host: 1 });
+TourPackageSchema.index({ price: 1 });
+TourPackageSchema.index({ location: 1 });
+// Virtual for host information when populated
+TourPackageSchema.virtual('hostInfo', {
+    ref: 'User',
+    localField: 'host',
+    foreignField: '_id',
+    justOne: true
+});
+// Virtual for price per hour (if duration is available)
+TourPackageSchema.virtual('pricePerHour').get(function () {
+    return this.duration ? this.price / this.duration : null;
+});
+// Pre-save middleware to ensure imageUrls is not empty
+TourPackageSchema.pre('save', function (next) {
+    if (this.imageUrls.length === 0) {
+        return next(new Error('Tour package must have at least one image'));
+    }
+    next();
+});
 exports.TourPackage = mongoose_1.default.model("TourPackage", TourPackageSchema);

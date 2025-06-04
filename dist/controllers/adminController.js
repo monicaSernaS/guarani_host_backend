@@ -1,17 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.deleteHost = exports.updateHost = exports.getAllHosts = exports.createHost = exports.deleteAdmin = exports.updateAdmin = exports.getAllAdmins = exports.createAdmin = void 0;
+exports.deleteUser = exports.updateUser = exports.getAllUsers = exports.createUser = exports.deleteHost = exports.updateHost = exports.getAllHosts = exports.createHost = exports.deleteAdmin = exports.updateAdmin = exports.getAllAdmins = exports.createAdmin = void 0;
 const User_1 = require("../models/User");
 const generateToken_1 = require("../utils/generateToken");
 /* ========================= ADMIN ========================= */
-/*
+/**
  * @desc    Create a new admin (user with role "admin")
  * @route   POST /api/admin/create-admin
  * @access  Private (admin only)
  */
 const createAdmin = async (req, res) => {
     try {
-        const { firstName, lastName, email, password, phone } = req.body;
+        const { firstName, lastName, email, password, phone, address } = req.body;
         // Admin validation: Only allow creation of admin by an existing admin
         if (req.user?.role !== "admin") {
             res.status(403).json({ message: "🚫 Unauthorized: Only admins can create other admins" });
@@ -35,10 +35,12 @@ const createAdmin = async (req, res) => {
             email,
             password,
             phone,
-            role: "admin", // Assign role as 'admin'
+            address: address || "No address provided",
+            role: "admin",
+            accountStatus: "active"
         });
         await newAdmin.save();
-        // Generate JWT token
+        // Generate JWT token (optional for admin creation)
         const token = (0, generateToken_1.generateToken)(newAdmin._id.toString());
         res.status(201).json({
             message: "✅ Admin created successfully",
@@ -58,7 +60,7 @@ exports.createAdmin = createAdmin;
  */
 const getAllAdmins = async (req, res) => {
     try {
-        const admins = await User_1.User.find({ role: "admin" });
+        const admins = await User_1.User.find({ role: "admin" }).select("-password");
         res.status(200).json({
             message: "✅ Admins retrieved successfully",
             admins,
@@ -77,10 +79,15 @@ exports.getAllAdmins = getAllAdmins;
  */
 const updateAdmin = async (req, res) => {
     try {
-        const { firstName, lastName, email, phone } = req.body;
-        // Validate the existence of required fields
-        if (!firstName && !lastName && !email && !phone) {
+        const { firstName, lastName, phone, address, accountStatus } = req.body;
+        // Validate the existence of at least one field
+        if (!firstName && !lastName && !phone && !address && !accountStatus) {
             res.status(400).json({ message: "❗ No fields provided for update" });
+            return;
+        }
+        // Validate accountStatus if provided
+        if (accountStatus && !['active', 'suspended', 'deleted', 'pending_verification'].includes(accountStatus)) {
+            res.status(400).json({ message: "❗ Invalid account status provided" });
             return;
         }
         const admin = await User_1.User.findById(req.params.id);
@@ -88,10 +95,13 @@ const updateAdmin = async (req, res) => {
             res.status(404).json({ message: "🚫 Admin not found" });
             return;
         }
+        // Update fields
         admin.firstName = firstName || admin.firstName;
         admin.lastName = lastName || admin.lastName;
-        admin.email = email || admin.email;
         admin.phone = phone || admin.phone;
+        admin.address = address || admin.address;
+        admin.accountStatus = accountStatus || admin.accountStatus;
+        // Note: email and password are not updated for security
         await admin.save();
         res.status(200).json({
             message: "✅ Admin updated successfully",
@@ -135,10 +145,15 @@ exports.deleteAdmin = deleteAdmin;
  */
 const createHost = async (req, res) => {
     try {
-        const { firstName, lastName, email, password, phone } = req.body;
+        const { firstName, lastName, email, password, phone, address, accountStatus } = req.body;
         // Validating required fields
-        if (!firstName || !lastName || !email || !password || !phone) {
+        if (!firstName || !lastName || !email || !password || !phone || !address) {
             res.status(400).json({ message: "❗ All fields are required" });
+            return;
+        }
+        // Validate accountStatus if provided
+        if (accountStatus && !['active', 'suspended', 'deleted', 'pending_verification'].includes(accountStatus)) {
+            res.status(400).json({ message: "❗ Invalid account status provided" });
             return;
         }
         // Check if the host already exists
@@ -154,10 +169,12 @@ const createHost = async (req, res) => {
             email,
             password,
             phone,
-            role: "host", // Assign role as 'host'
+            address,
+            role: "host",
+            accountStatus: accountStatus || "active", // Default to active if not provided
         });
         await newHost.save();
-        // Generate JWT token
+        // Generate JWT token (optional for host creation)
         const token = (0, generateToken_1.generateToken)(newHost._id.toString());
         res.status(201).json({
             message: "✅ Host created successfully",
@@ -177,7 +194,7 @@ exports.createHost = createHost;
  */
 const getAllHosts = async (req, res) => {
     try {
-        const hosts = await User_1.User.find({ role: "host" });
+        const hosts = await User_1.User.find({ role: "host" }).select("-password");
         res.status(200).json({
             message: "✅ Hosts retrieved successfully",
             hosts,
@@ -190,16 +207,21 @@ const getAllHosts = async (req, res) => {
 };
 exports.getAllHosts = getAllHosts;
 /**
- * @desc    Update host by ID (update user role to 'host' if necessary)
+ * @desc    Update host by ID
  * @route   PATCH /api/admin/hosts/:id
  * @access  Private (admin only)
  */
 const updateHost = async (req, res) => {
     try {
-        const { firstName, lastName, email, phone } = req.body;
-        // Validate the existence of required fields
-        if (!firstName && !lastName && !email && !phone) {
+        const { firstName, lastName, phone, address, accountStatus } = req.body;
+        // Validate the existence of at least one field
+        if (!firstName && !lastName && !phone && !address && !accountStatus) {
             res.status(400).json({ message: "❗ No fields provided for update" });
+            return;
+        }
+        // Validate accountStatus if provided
+        if (accountStatus && !['active', 'suspended', 'deleted', 'pending_verification'].includes(accountStatus)) {
+            res.status(400).json({ message: "❗ Invalid account status provided" });
             return;
         }
         const host = await User_1.User.findById(req.params.id);
@@ -207,10 +229,13 @@ const updateHost = async (req, res) => {
             res.status(404).json({ message: "🚫 Host not found" });
             return;
         }
+        // Update fields
         host.firstName = firstName || host.firstName;
         host.lastName = lastName || host.lastName;
-        host.email = email || host.email;
         host.phone = phone || host.phone;
+        host.address = address || host.address;
+        host.accountStatus = accountStatus || host.accountStatus;
+        // Note: email and password are not updated for security
         await host.save();
         res.status(200).json({
             message: "✅ Host updated successfully",
@@ -224,7 +249,7 @@ const updateHost = async (req, res) => {
 };
 exports.updateHost = updateHost;
 /**
- * @desc    Delete a host by ID (delete user with role 'host')
+ * @desc    Delete a host by ID
  * @route   DELETE /api/admin/hosts/:id
  * @access  Private (admin only)
  */
@@ -248,13 +273,65 @@ const deleteHost = async (req, res) => {
 exports.deleteHost = deleteHost;
 /* ========================= USERS ========================= */
 /**
+ * @desc    Create a new user (user with role "user")
+ * @route   POST /api/admin/users
+ * @access  Private (admin only)
+ */
+const createUser = async (req, res) => {
+    try {
+        const { firstName, lastName, email, password, phone, address, role, accountStatus } = req.body;
+        // Validating required fields
+        if (!firstName || !lastName || !email || !password || !phone || !address || !role) {
+            res.status(400).json({ message: "❗ All fields are required" });
+            return;
+        }
+        // Validate role
+        if (!['admin', 'host', 'user'].includes(role)) {
+            res.status(400).json({ message: "❗ Invalid role provided" });
+            return;
+        }
+        // Validate accountStatus if provided
+        if (accountStatus && !['active', 'suspended', 'deleted', 'pending_verification'].includes(accountStatus)) {
+            res.status(400).json({ message: "❗ Invalid account status provided" });
+            return;
+        }
+        // Check if user already exists
+        const existingUser = await User_1.User.findOne({ email });
+        if (existingUser) {
+            res.status(400).json({ message: "❗ User with this email already exists" });
+            return;
+        }
+        // Create new user
+        const newUser = new User_1.User({
+            firstName,
+            lastName,
+            email,
+            password,
+            phone,
+            address,
+            role,
+            accountStatus: accountStatus || "active", // Default to active if not provided
+        });
+        await newUser.save();
+        res.status(201).json({
+            message: "✅ User created successfully",
+            user: newUser,
+        });
+    }
+    catch (error) {
+        console.error("❌ Error creating user:", error);
+        res.status(500).json({ message: "❌ Server error while creating user" });
+    }
+};
+exports.createUser = createUser;
+/**
  * @desc    Get all users
  * @route   GET /api/admin/users
  * @access  Private (admin only)
  */
 const getAllUsers = async (req, res) => {
     try {
-        const users = await User_1.User.find();
+        const users = await User_1.User.find().select("-password");
         res.status(200).json({
             message: "✅ Users retrieved successfully",
             users,
@@ -273,9 +350,21 @@ exports.getAllUsers = getAllUsers;
  */
 const updateUser = async (req, res) => {
     try {
-        const { firstName, lastName, email, phone } = req.body;
-        if (!firstName && !lastName && !email && !phone) {
+        // Acceptable fields for update
+        const { firstName, lastName, phone, address, role, accountStatus } = req.body;
+        // At least a field must be provided
+        if (!firstName && !lastName && !phone && !address && !role && !accountStatus) {
             res.status(400).json({ message: "❗ No fields provided for update" });
+            return;
+        }
+        // Validate role if provided
+        if (role && !['admin', 'host', 'user'].includes(role)) {
+            res.status(400).json({ message: "❗ Invalid role provided" });
+            return;
+        }
+        // Validate accountStatus if provided
+        if (accountStatus && !['active', 'suspended', 'deleted', 'pending_verification'].includes(accountStatus)) {
+            res.status(400).json({ message: "❗ Invalid account status provided" });
             return;
         }
         const user = await User_1.User.findById(req.params.id);
@@ -283,10 +372,14 @@ const updateUser = async (req, res) => {
             res.status(404).json({ message: "🚫 User not found" });
             return;
         }
+        // Update all fields except email and password
         user.firstName = firstName || user.firstName;
         user.lastName = lastName || user.lastName;
-        user.email = email || user.email;
         user.phone = phone || user.phone;
+        user.address = address || user.address;
+        user.role = role || user.role;
+        user.accountStatus = accountStatus || user.accountStatus;
+        // Email y password not update, security things
         await user.save();
         res.status(200).json({
             message: "✅ User updated successfully",

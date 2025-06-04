@@ -1,27 +1,19 @@
 "use strict";
+/**
+ * @file bookingController.ts
+ * @description USER booking operations - users can book any host's properties/tours
+ */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.filterBookingsByDateRange = exports.cancelBooking = exports.updateBooking = exports.getBookingSummary = exports.getBookings = exports.createBooking = void 0;
+exports.filterUserBookings = exports.cancelUserBooking = exports.updateUserBooking = exports.getUserBookingById = exports.getUserBookings = exports.createBooking = void 0;
 const BookingModel_1 = require("../models/BookingModel");
 const uploadImagesToCloudinary_1 = require("../helpers/uploadImagesToCloudinary");
 const deleteImageFromCloudinary_1 = require("../helpers/deleteImageFromCloudinary");
-const emailService_1 = require("../utils/emailService");
 const enums_1 = require("../@types/express/enums");
+const availabilityHelper_1 = require("../helpers/availabilityHelper");
+const validateBooking_1 = require("../helpers/validateBooking");
+const mongoose_1 = require("mongoose");
 /**
- * @desc    Helper to validate check-in and check-out dates
- */
-const ensureValidDates = (checkIn, checkOut) => {
-    const now = Date.now();
-    const inDate = new Date(checkIn).getTime();
-    const outDate = new Date(checkOut).getTime();
-    if (inDate < now)
-        throw new Error("❗ Check-in date cannot be in the past");
-    if (outDate < now)
-        throw new Error("❗ Check-out date cannot be in the past");
-    if (inDate > outDate)
-        throw new Error("❗ Check-out cannot be before check-in");
-};
-/**
- * @desc    Create a new booking
+ * @desc    Create booking for ANY property/tour (user can book from any host)
  * @route   POST /api/bookings
  * @access  Private (user)
  */
@@ -30,228 +22,550 @@ const createBooking = async (req, res) => {
         const { property, tourPackage, checkIn, checkOut, guests, totalPrice, paymentDetails } = req.body;
         const userId = req.user?._id;
         if (!userId) {
-            res.status(401).json({ message: "🚫 Unauthorized" });
+            res.status(401).json({
+                success: false,
+                message: "🚫 Unauthorized"
+            });
             return;
         }
-        if (!property && !tourPackage) {
-            res.status(400).json({ message: "❗ A property or tour package must be selected" });
-            return;
-        }
-        ensureValidDates(checkIn, checkOut);
-        if (guests <= 0 || totalPrice <= 0) {
-            res.status(400).json({ message: "❗ Guests and total price must be greater than zero" });
-            return;
-        }
-        const bookingData = {
-            user: userId,
-            property,
-            tourPackage,
+        // Validate basic booking data (works for both properties AND tours)
+        (0, validateBooking_1.validateBookingData)({
             checkIn,
             checkOut,
+            guests,
+            totalPrice,
+            property,
+            tourPackage
+        });
+        // Validate availability for properties (tours don't need availability check in the same way)
+        if (property) {
+            const availabilityValidation = await (0, availabilityHelper_1.validateBookingDates)(property, new Date(checkIn), new Date(checkOut));
+            if (!availabilityValidation.valid) {
+                res.status(400).json({
+                    success: false,
+                    message: availabilityValidation.message || "Property not available for selected dates"
+                });
+                return;
+            }
+        }
+        // For tours, we could add capacity validation here if needed
+        // Tours typically don't have date conflicts like properties do
+        // Build booking data object
+        const bookingData = {
+            user: userId,
+            checkIn: new Date(checkIn),
+            checkOut: new Date(checkOut),
             guests,
             totalPrice,
             paymentStatus: enums_1.PaymentStatus.PENDING,
             paymentDetails: paymentDetails?.trim() || "",
             status: enums_1.BookingStatus.PENDING,
         };
+        // Add property OR tourPackage (mutually exclusive)
+        if (property)
+            bookingData.property = property;
+        if (tourPackage)
+            bookingData.tourPackage = tourPackage;
+        // Handle payment images upload if provided
         if (req.files && "paymentImage" in req.files) {
             const paymentImageFiles = req.files["paymentImage"];
             const imageUrls = await (0, uploadImagesToCloudinary_1.uploadImagesToCloudinary)(paymentImageFiles);
             bookingData.paymentImages = imageUrls;
         }
+        // Create and save the booking
         const newBooking = new BookingModel_1.Booking(bookingData);
         await newBooking.save();
-        if (req.user?.email) {
-            await (0, emailService_1.sendEmail)(req.user.email, "Booking Confirmation - GuaraniHost", `<h2>✅ Booking confirmed!</h2>
-         <p>Hello ${req.user.firstName},</p>
-         <p>Your booking from <strong>${new Date(checkIn).toLocaleDateString()}</strong> to <strong>${new Date(checkOut).toLocaleDateString()}</strong> is confirmed.</p>`);
-        }
+        // Populate the booking for response
+        await newBooking.populate([
+            { path: 'property', select: 'title city location pricePerNight host' },
+            { path: 'tourPackage', select: 'title description price duration host' },
+            { path: 'user', select: 'firstName lastName email phone' }
+        ]);
+        // // Send confirmation email to user
+        // if (req.user?.email) {
+        //   const bookingType = property ? 'property' : 'tour';
+        //   const bookingTitle = property ? 
+        //     (newBooking.property as any)?.title : 
+        //     (newBooking.tourPackage as any)?.title;
+        //   await sendEmail(
+        //     req.user.email,
+        //     "Booking Confirmation - GuaraniHost",
+        //     `
+        //     <h2>✅ Booking Confirmed!</h2>
+        //     <p>Hello ${req.user.firstName},</p>
+        //     <p>Your ${bookingType} booking for <strong>${bookingTitle}</strong> has been successfully created.</p>
+        //     <p><strong>Booking Details:</strong></p>
+        //     <ul>
+        //       <li>Check-in: ${new Date(checkIn).toLocaleDateString()}</li>
+        //       <li>Check-out: ${new Date(checkOut).toLocaleDateString()}</li>
+        //       <li>Guests: ${guests}</li>
+        //       <li>Total Price: $${totalPrice}</li>
+        //       <li>Status: ${BookingStatus.PENDING}</li>
+        //       <li>Payment Status: ${PaymentStatus.PENDING}</li>
+        //     </ul>
+        //     <p>Your booking is currently pending confirmation from the host. You will receive another email once it's confirmed.</p>
+        //     <br>
+        //     <p>Best regards,<br>GuaraniHost Team</p>
+        //     `
+        //   );
+        // }
         res.status(201).json({
-            message: "✅ Booking created successfully",
-            booking: newBooking,
+            success: true,
+            message: `✅ ${property ? 'Property' : 'Tour'} booking created successfully`,
+            data: { booking: newBooking }
         });
     }
     catch (error) {
         console.error("❌ Error creating booking:", error);
-        res.status(400).json({ message: error.message || "❌ Server error" });
+        res.status(400).json({
+            success: false,
+            message: error.message || "❌ Server error"
+        });
     }
 };
 exports.createBooking = createBooking;
 /**
- * @desc    Get all bookings (user or admin)
+ * @desc    Get user's OWN bookings (properties and tours they've booked)
  * @route   GET /api/bookings
- * @access  Private (user or admin)
+ * @access  Private (user)
  */
-const getBookings = async (req, res) => {
+const getUserBookings = async (req, res) => {
     try {
         const userId = req.user?._id;
-        const isAdmin = req.user?.role === "admin";
-        const bookings = await BookingModel_1.Booking.find(isAdmin ? {} : { user: userId })
-            .populate("property")
-            .populate("tourPackage");
-        if (!bookings.length) {
-            res.status(404).json({ message: "❗ No bookings found" });
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "🚫 Unauthorized"
+            });
             return;
         }
+        // Get pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        // Get all bookings made BY this user (regardless of which host's property/tour)
+        const [bookings, totalCount] = await Promise.all([
+            BookingModel_1.Booking.find({ user: userId })
+                .populate('user', 'firstName lastName email phone')
+                .populate('property', 'title city address pricePerNight imageUrls host')
+                .populate('tourPackage', 'title description price duration host')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            BookingModel_1.Booking.countDocuments({ user: userId })
+        ]);
         res.status(200).json({
-            message: "✅ Bookings retrieved successfully",
-            bookings,
+            success: true,
+            message: "✅ Your bookings retrieved successfully",
+            data: {
+                bookings,
+                pagination: {
+                    current: page,
+                    total: Math.ceil(totalCount / limit),
+                    totalCount,
+                    hasNext: page * limit < totalCount,
+                    hasPrev: page > 1
+                }
+            }
         });
     }
     catch (error) {
-        console.error("❌ Error fetching bookings:", error);
-        res.status(500).json({ message: "❌ Server error" });
+        console.error("❌ Error fetching user bookings:", error);
+        res.status(500).json({
+            success: false,
+            message: "❌ Server error"
+        });
     }
 };
-exports.getBookings = getBookings;
+exports.getUserBookings = getUserBookings;
 /**
- * @desc    Get booking summary
- * @route   GET /api/bookings/:id/summary
- * @access  Private
+ * @desc    Get user's specific booking by ID
+ * @route   GET /api/bookings/:id
+ * @access  Private (user)
  */
-const getBookingSummary = async (req, res) => {
+const getUserBookingById = async (req, res) => {
     try {
-        const booking = await BookingModel_1.Booking.findById(req.params.id)
-            .populate("user", "firstName lastName email phone")
-            .populate("property", "title city address pricePerNight")
-            .populate("tourPackage", "title description price");
+        const userId = req.user?._id;
+        const bookingId = req.params.id;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "🚫 Unauthorized"
+            });
+            return;
+        }
+        // Find booking that belongs to the user
+        const booking = await BookingModel_1.Booking.findOne({
+            _id: bookingId,
+            user: userId // Only their own bookings
+        })
+            .populate('user', 'firstName lastName email phone')
+            .populate('property', 'title city address pricePerNight imageUrls host')
+            .populate('tourPackage', 'title description price duration host');
         if (!booking) {
-            res.status(404).json({ message: "🚫 Booking not found" });
+            res.status(404).json({
+                success: false,
+                message: "🚫 Booking not found or access denied"
+            });
             return;
         }
         res.status(200).json({
-            message: "✅ Booking summary loaded",
-            booking,
+            success: true,
+            message: "✅ Booking retrieved successfully",
+            data: { booking }
         });
     }
     catch (error) {
-        console.error("❌ Error loading summary:", error);
-        res.status(500).json({ message: "❌ Server error" });
+        console.error("❌ Error fetching booking:", error);
+        res.status(500).json({
+            success: false,
+            message: "❌ Server error"
+        });
     }
 };
-exports.getBookingSummary = getBookingSummary;
+exports.getUserBookingById = getUserBookingById;
 /**
- * @desc    Update booking
+ * @desc    Update user's OWN booking (limited fields)
  * @route   PATCH /api/bookings/:id
- * @access  Private (user or admin)
+ * @access  Private (user)
  */
-const updateBooking = async (req, res) => {
+const updateUserBooking = async (req, res) => {
     try {
-        const { checkIn, checkOut, guests, paymentDetails, removedPaymentImages, property, tourPackage, } = req.body;
-        const booking = await BookingModel_1.Booking.findById(req.params.id).populate("user");
+        const { checkIn, checkOut, guests, paymentDetails, removedPaymentImages } = req.body;
+        const userId = req.user?._id;
+        const bookingId = req.params.id;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "🚫 Unauthorized"
+            });
+            return;
+        }
+        // Find booking that belongs to the user
+        const booking = await BookingModel_1.Booking.findOne({
+            _id: bookingId,
+            user: userId
+        }).populate("user", "firstName lastName email");
         if (!booking) {
-            res.status(404).json({ message: "🚫 Booking not found" });
+            res.status(404).json({
+                success: false,
+                message: "🚫 Booking not found or access denied"
+            });
             return;
         }
-        if (guests && guests <= 0) {
-            res.status(400).json({ message: "❗ Guests must be greater than zero" });
+        // Check if booking can be modified
+        if (booking.status === enums_1.BookingStatus.CANCELLED || booking.status === enums_1.BookingStatus.COMPLETED) {
+            res.status(400).json({
+                success: false,
+                message: "❗ Cannot modify cancelled or completed bookings"
+            });
             return;
         }
-        booking.checkIn = checkIn || booking.checkIn;
-        booking.checkOut = checkOut || booking.checkOut;
-        booking.guests = guests || booking.guests;
-        booking.paymentDetails = paymentDetails?.trim() || booking.paymentDetails;
-        booking.property = property || booking.property;
-        booking.tourPackage = tourPackage || booking.tourPackage;
+        // Validate dates if changing
+        if (checkIn && checkOut) {
+            (0, validateBooking_1.validateBookingData)({
+                checkIn,
+                checkOut,
+                guests: guests || booking.guests,
+                totalPrice: booking.totalPrice,
+                property: booking.property?.toString(),
+                tourPackage: booking.tourPackage?.toString()
+            });
+            // Validate availability for properties if dates are changing
+            if (booking.property && checkIn && checkOut) {
+                const availabilityValidation = await (0, availabilityHelper_1.validateBookingDates)(booking.property.toString(), new Date(checkIn), new Date(checkOut), booking.id);
+                if (!availabilityValidation.valid) {
+                    res.status(400).json({
+                        success: false,
+                        message: availabilityValidation.message || "Property not available for selected dates"
+                    });
+                    return;
+                }
+            }
+            // For tour packages, we might add different validation logic here if needed
+        }
+        // Update allowed fields (users can't change status/paymentStatus)
+        if (checkIn)
+            booking.checkIn = new Date(checkIn);
+        if (checkOut)
+            booking.checkOut = new Date(checkOut);
+        if (guests)
+            booking.guests = guests;
+        if (paymentDetails !== undefined)
+            booking.paymentDetails = paymentDetails?.trim();
+        // Handle payment images removal
         if (Array.isArray(removedPaymentImages)) {
             for (const imageUrl of removedPaymentImages) {
-                await (0, deleteImageFromCloudinary_1.deleteImageFromCloudinary)(imageUrl);
-                booking.paymentImages = booking.paymentImages?.filter((url) => url !== imageUrl) || [];
+                try {
+                    await (0, deleteImageFromCloudinary_1.deleteImageFromCloudinary)(imageUrl);
+                    booking.paymentImages = booking.paymentImages?.filter((url) => url !== imageUrl) || [];
+                }
+                catch (error) {
+                    console.error(`Failed to delete image ${imageUrl}:`, error);
+                    // Continue with other operations even if image deletion fails
+                }
             }
         }
+        // Handle new payment images upload
         if (req.files && "paymentImage" in req.files) {
             const newPaymentImageFiles = req.files["paymentImage"];
             const newImageUrls = await (0, uploadImagesToCloudinary_1.uploadImagesToCloudinary)(newPaymentImageFiles);
             booking.paymentImages = [...(booking.paymentImages || []), ...newImageUrls];
         }
         await booking.save();
-        const user = booking.user;
-        await (0, emailService_1.sendEmail)(user.email, "Booking Updated - GuaraniHost", `<h2>🔄 Booking Updated</h2>
-       <p>Hello ${user.firstName},</p>
-       <p>Your booking from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been updated.</p>`);
+        // Populate for response
+        await booking.populate([
+            { path: 'property', select: 'title city address pricePerNight imageUrls host' },
+            { path: 'tourPackage', select: 'title description price duration host' }
+        ]);
+        // // Send update notification email
+        // const user = booking.user as unknown as IUser;
+        // if (user?.email) {
+        //   const bookingType = booking.property ? 'property' : 'tour';
+        //   const bookingTitle = booking.property ? 
+        //     (booking.property as any)?.title : 
+        //     (booking.tourPackage as any)?.title;
+        //   await sendEmail(
+        //     user.email,
+        //     "Booking Updated - GuaraniHost",
+        //     `
+        //     <h2>📝 Booking Updated</h2>
+        //     <p>Hello ${user.firstName},</p>
+        //     <p>Your ${bookingType} booking for <strong>${bookingTitle}</strong> has been successfully updated.</p>
+        //     <p><strong>Updated Details:</strong></p>
+        //     <ul>
+        //       <li>Check-in: ${booking.checkIn.toLocaleDateString()}</li>
+        //       <li>Check-out: ${booking.checkOut.toLocaleDateString()}</li>
+        //       <li>Guests: ${booking.guests}</li>
+        //       <li>Total Price: $${booking.totalPrice}</li>
+        //     </ul>
+        //     <p>Your host will be notified of these changes.</p>
+        //     <br>
+        //     <p>Best regards,<br>GuaraniHost Team</p>
+        //     `
+        //   );
+        // }
         res.status(200).json({
+            success: true,
             message: "✅ Booking updated successfully",
-            booking,
+            data: { booking }
         });
     }
     catch (error) {
         console.error("❌ Error updating booking:", error);
-        res.status(500).json({ message: "❌ Server error" });
+        res.status(500).json({
+            success: false,
+            message: error.message || "❌ Server error"
+        });
     }
 };
-exports.updateBooking = updateBooking;
+exports.updateUserBooking = updateUserBooking;
 /**
- * @desc    Cancel a booking
+ * @desc    Cancel user's OWN booking
  * @route   DELETE /api/bookings/:id
- * @access  Private (user or admin)
+ * @access  Private (user)
  */
-const cancelBooking = async (req, res) => {
+const cancelUserBooking = async (req, res) => {
     try {
-        const booking = await BookingModel_1.Booking.findById(req.params.id).populate("user");
-        if (!booking) {
-            res.status(404).json({ message: "🚫 Booking not found" });
+        const userId = req.user?._id;
+        const bookingId = req.params.id;
+        const { reason } = req.body || {}; // Optional cancellation reason - handle undefined body
+        // 1. Validate user authentication
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "🚫 Unauthorized"
+            });
             return;
         }
-        if (booking.paymentImages && booking.paymentImages.length > 0) {
-            for (const imageUrl of booking.paymentImages) {
-                await (0, deleteImageFromCloudinary_1.deleteImageFromCloudinary)(imageUrl);
+        // 2. Validate booking ID format
+        if (!mongoose_1.Types.ObjectId.isValid(bookingId)) {
+            res.status(400).json({
+                success: false,
+                message: "❌ Invalid booking ID format"
+            });
+            return;
+        }
+        console.log(`🔍 Searching for booking: ${bookingId} for user: ${userId}`);
+        // 3. Find the booking belonging to the authenticated user
+        const booking = await BookingModel_1.Booking.findOne({
+            _id: bookingId,
+            user: userId
+        }).populate("user", "firstName lastName email");
+        if (!booking) {
+            console.log(`❌ Booking ${bookingId} not found for user ${userId}`);
+            res.status(404).json({
+                success: false,
+                message: "🚫 Booking not found or access denied"
+            });
+            return;
+        }
+        console.log(`✅ Found booking: ${booking._id}, Status: ${booking.status}`);
+        // 4. Validate that booking can be cancelled
+        if (booking.status === enums_1.BookingStatus.CANCELLED) {
+            res.status(400).json({
+                success: false,
+                message: "❗ Booking is already cancelled"
+            });
+            return;
+        }
+        if (booking.status === enums_1.BookingStatus.COMPLETED) {
+            res.status(400).json({
+                success: false,
+                message: "❗ Cannot cancel completed bookings"
+            });
+            return;
+        }
+        console.log(`🔄 Cancelling booking ${booking._id}`);
+        // 5. Update booking status to cancelled
+        booking.status = enums_1.BookingStatus.CANCELLED;
+        booking.cancelledAt = new Date();
+        booking.cancellationReason = reason || "Cancelled by guest";
+        // 6. If booking was paid, mark payment as refunded
+        if (booking.paymentStatus === enums_1.PaymentStatus.PAID) {
+            booking.paymentStatus = enums_1.PaymentStatus.REFUNDED;
+            console.log(`💰 Payment status changed to REFUNDED for booking ${booking._id}`);
+        }
+        // 7. Save changes to database
+        await booking.save();
+        console.log(`✅ Booking ${booking._id} successfully cancelled`);
+        // 8. Populate related data for response
+        await booking.populate([
+            { path: 'property', select: 'title city address pricePerNight imageUrls host' },
+            { path: 'tourPackage', select: 'title description price duration host' }
+        ]);
+        // 9. Optional: Send cancellation confirmation email
+        // const user = booking.user as unknown as IUser;
+        // if (user?.email) {
+        //   const bookingType = booking.property ? 'property' : 'tour';
+        //   const bookingTitle = booking.property ? 
+        //     (booking.property as any)?.title : 
+        //     (booking.tourPackage as any)?.title;
+        //   await sendEmail(
+        //     user.email,
+        //     "Booking Cancelled - GuaraniHost",
+        //     `
+        //     <h2>❌ Booking Cancelled</h2>
+        //     <p>Hello ${user.firstName},</p>
+        //     <p>Your ${bookingType} booking for <strong>${bookingTitle}</strong> has been cancelled.</p>
+        //     <p><strong>Booking Details:</strong></p>
+        //     <ul>
+        //       <li>Check-in: ${booking.checkIn.toLocaleDateString()}</li>
+        //       <li>Check-out: ${booking.checkOut.toLocaleDateString()}</li>
+        //       <li>Guests: ${booking.guests}</li>
+        //       <li>Total Price: $${booking.totalPrice}</li>
+        //       <li>Cancellation Reason: ${booking.cancellationReason}</li>
+        //     </ul>
+        //     ${booking.paymentStatus === PaymentStatus.REFUNDED ? 
+        //       '<p><strong>Refund Information:</strong> Your payment will be refunded according to our refund policy.</p>' : 
+        //       ''
+        //     }
+        //     <p>The host has been notified of this cancellation.</p>
+        //     <br>
+        //     <p>Best regards,<br>GuaraniHost Team</p>
+        //     `
+        //   );
+        // }
+        res.status(200).json({
+            success: true,
+            message: "✅ Booking cancelled successfully",
+            data: {
+                bookingId: booking._id,
+                cancellationReason: booking.cancellationReason,
+                refundStatus: booking.paymentStatus === enums_1.PaymentStatus.REFUNDED ? 'Refund initiated' : 'No refund applicable'
+            }
+        });
+    }
+    catch (error) {
+        // 10. Enhanced error logging
+        console.error("❌ Error cancelling booking:", {
+            error: error.message,
+            stack: error.stack,
+            bookingId: req.params.id,
+            userId: req.user?._id
+        });
+        res.status(500).json({
+            success: false,
+            message: "❌ Server error",
+            // Show error details in development environment
+            ...(process.env.NODE_ENV === 'development' && {
+                error: error.message
+            })
+        });
+    }
+};
+exports.cancelUserBooking = cancelUserBooking;
+/**
+ * @desc    Filter user's OWN bookings
+ * @route   GET /api/bookings/filter
+ * @access  Private (user)
+ */
+const filterUserBookings = async (req, res) => {
+    try {
+        const userId = req.user?._id;
+        const { status, paymentStatus, type, from, to, page = 1, limit = 10 } = req.query;
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                message: "🚫 Unauthorized"
+            });
+            return;
+        }
+        // Build query for user's own bookings
+        const query = { user: userId };
+        // Apply filters
+        if (status)
+            query.status = status;
+        if (paymentStatus)
+            query.paymentStatus = paymentStatus;
+        if (type) {
+            if (type === 'property') {
+                query.property = { $exists: true, $ne: null };
+                query.tourPackage = { $exists: false };
+            }
+            else if (type === 'tour') {
+                query.tourPackage = { $exists: true, $ne: null };
+                query.property = { $exists: false };
             }
         }
-        await booking.deleteOne();
-        const user = booking.user;
-        await (0, emailService_1.sendEmail)(user.email, "Booking Canceled - GuaraniHost", `<h2>❌ Booking Canceled</h2>
-       <p>Hello ${user.firstName},</p>
-       <p>Your booking from <strong>${new Date(booking.checkIn).toLocaleDateString()}</strong> to <strong>${new Date(booking.checkOut).toLocaleDateString()}</strong> has been canceled.</p>`);
+        if (from && to) {
+            query.checkIn = { $gte: new Date(from) };
+            query.checkOut = { $lte: new Date(to) };
+        }
+        // Pagination setup
+        const skip = (Number(page) - 1) * Number(limit);
+        // Execute queries in parallel
+        const [bookings, totalCount] = await Promise.all([
+            BookingModel_1.Booking.find(query)
+                .populate('property', 'title city address pricePerNight imageUrls host')
+                .populate('tourPackage', 'title description price duration host')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit)),
+            BookingModel_1.Booking.countDocuments(query)
+        ]);
         res.status(200).json({
-            message: "✅ Booking canceled successfully",
-            bookingId: booking._id,
+            success: true,
+            message: "✅ Your bookings filtered successfully",
+            data: {
+                bookings,
+                pagination: {
+                    current: Number(page),
+                    total: Math.ceil(totalCount / Number(limit)),
+                    totalCount,
+                    hasNext: Number(page) * Number(limit) < totalCount,
+                    hasPrev: Number(page) > 1
+                },
+                filters: { status, paymentStatus, type, from, to }
+            }
         });
     }
     catch (error) {
-        console.error("❌ Error canceling booking:", error);
-        res.status(500).json({ message: "❌ Server error" });
-    }
-};
-exports.cancelBooking = cancelBooking;
-/**
- * @desc    Admin or host filters bookings by check-in and check-out dates
- * @route   GET /api/bookings/filter?from=YYYY-MM-DD&to=YYYY-MM-DD
- * @access  Private (admin or host)
- */
-const filterBookingsByDateRange = async (req, res) => {
-    try {
-        const role = req.user?.role;
-        if (!role || !["admin", "host"].includes(role)) {
-            res.status(403).json({ message: "🚫 Access denied" });
-            return;
-        }
-        const from = req.query.from;
-        const to = req.query.to;
-        if (!from || !to) {
-            res.status(400).json({ message: "❗ 'from' and 'to' dates are required" });
-            return;
-        }
-        ensureValidDates(from, to);
-        const fromDate = new Date(from);
-        const toDate = new Date(to);
-        const bookings = await BookingModel_1.Booking.find({
-            checkIn: { $gte: fromDate },
-            checkOut: { $lte: toDate },
-        })
-            .populate("user", "firstName lastName email")
-            .populate("property")
-            .populate("tourPackage");
-        res.status(200).json({
-            message: "✅ Bookings filtered by date range",
-            from: fromDate.toISOString().split("T")[0],
-            to: toDate.toISOString().split("T")[0],
-            total: bookings.length,
-            bookings,
+        console.error("❌ Error filtering user bookings:", error);
+        res.status(500).json({
+            success: false,
+            message: "❌ Server error"
         });
     }
-    catch (error) {
-        console.error("❌ Error filtering bookings by date:", error);
-        res.status(500).json({ message: "❌ Server error" });
-    }
 };
-exports.filterBookingsByDateRange = filterBookingsByDateRange;
+exports.filterUserBookings = filterUserBookings;
