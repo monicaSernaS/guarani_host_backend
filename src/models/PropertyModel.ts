@@ -11,6 +11,7 @@ export interface IProperty extends Document {
   city: string;
   pricePerNight: number;
   amenities: string[];
+  guests: number;
   status: PropertyStatus;
   host: mongoose.Types.ObjectId;
   imageUrls: string[];
@@ -58,7 +59,12 @@ const PropertySchema: Schema = new Schema<IProperty>(
           return amenities.length <= 20; // Max 20 amenities
         },
         message: 'Cannot have more than 20 amenities'
-      }
+      },
+    guests: {
+      type: Number,
+      required: [true, 'Maximum number of guests is required'],
+      min: [1, 'There must be at least one guest']
+    },
     },
     status: {
       type: String,

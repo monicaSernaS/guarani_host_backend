@@ -168,3 +168,4 @@ BookingSchema.pre(/^find/, function(this: mongoose.Query<any, any>) {
 });
 
 export const Booking = mongoose.model<IBooking>("Booking", BookingSchema);
+

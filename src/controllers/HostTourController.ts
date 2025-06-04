@@ -26,13 +26,14 @@ export const createHostTour = async (req: Request, res: Response): Promise<void>
     
     const hostId = req.user?._id;
 
+    console.log('📥 Request body:', { title, description, price, status });
+    console.log('👤 Host ID from token:', hostId);
+    console.log('📁 Files received:', req.files);
+
     if (!hostId) {
       res.status(401).json({ message: "🚫 Unauthorized" });
       return;
     }
-
-    console.log('Host creating tour with data:', req.body);
-    console.log('Files received:', req.files);
 
     // Validate required fields
     if (!title || !description || !price) {
@@ -101,8 +102,11 @@ export const createHostTour = async (req: Request, res: Response): Promise<void>
       tour: newTour 
     });
   } catch (error) {
-    console.error("❌ Error creating host tour:", error);
-    res.status(500).json({ message: "❌ Server error while creating tour" });
+    console.error("❌ Detailed error:", error);
+    res.status(500).json({ 
+      message: "❌ Server error while creating tour", 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -115,12 +119,20 @@ export const getHostTours = async (req: Request, res: Response): Promise<void> =
   try {
     const hostId = req.user?._id;
 
+    console.log('🔍 Getting tours for host ID:', hostId);
+    console.log('🔍 Host ID type:', typeof hostId);
+
     if (!hostId) {
       res.status(401).json({ message: "🚫 Unauthorized" });
       return;
     }
 
     const tours = await TourPackage.find({ host: hostId }).sort({ createdAt: -1 });
+
+    console.log('📋 Found tours count:', tours.length);
+    tours.forEach((tour, index) => {
+      console.log(`- Tour ${index + 1}: "${tour.title}" (ID: ${tour._id}) - Host: ${tour.host} (Type: ${typeof tour.host})`);
+    });
 
     res.status(200).json({ 
       message: "✅ Tours retrieved successfully",

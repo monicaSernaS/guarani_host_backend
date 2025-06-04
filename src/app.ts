@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 // =============== Route Imports ===============
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import adminBookingRoutes from "./routes/adminBookingRoutes";
 import adminPropertyRoutes from "./routes/adminPropertyRoutes";
 import tourRoutes from "./routes/tourPackageRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
@@ -14,6 +15,7 @@ import hostPropertyRoutes from "./routes/hostPropertyRoutes";
 import hostTourRoutes from "./routes/hostTourRoutes";
 import publicPropertyRoutes from "./routes/publicPropertyRoutes";
 import publicTourRoutes from "./routes/publicTourRoutes";
+
 
 // Load environment variables from .env file
 dotenv.config();
@@ -36,6 +38,7 @@ app.use("/api/auth", authRoutes);
 
 // Admin routes - for managing users, properties, tours, and bookings
 app.use("/api/admin", adminRoutes);               // Admin-only: users & hosts
+app.use("/api/admin", adminBookingRoutes);        // Admin-only: bookings CRUD and filtering
 app.use("/api/admin", adminPropertyRoutes);       // Admin-only: properties
 app.use("/api/admin", tourRoutes);                // Admin & Host: tour packages
 
@@ -43,7 +46,7 @@ app.use("/api/admin", tourRoutes);                // Admin & Host: tour packages
 app.use("/api/bookings", bookingRoutes);          // Booking CRUD and filtering
 
 // Host-specific routes - to manage own content
-app.use("/api/host/bookings", hostBookingRoutes); // Host: bookings & filters
+app.use("/api/host", hostBookingRoutes);          // Host: bookings & filters
 app.use("/api/host", hostPropertyRoutes);         // Host: properties CRUD
 app.use("/api/host", hostTourRoutes);             // Host: tour packages CRUD
 
