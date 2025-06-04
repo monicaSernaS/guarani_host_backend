@@ -35,6 +35,12 @@ router.patch('/hosts/:id', protect_1.protect, (0, checkRole_1.checkRole)('admin'
 router.delete('/hosts/:id', protect_1.protect, (0, checkRole_1.checkRole)('admin'), adminController_1.deleteHost);
 /* ========================= USERS ROUTES ========================= */
 /**
+ * @route   POST /api/admin/users
+ * @desc    Admin creates a new user (any role)
+ * @access  Private (admin only)
+ */
+router.post('/users', protect_1.protect, (0, checkRole_1.checkRole)('admin'), adminController_1.createUser);
+/**
  * @route   GET /api/admin/users
  * @desc    Admin retrieves all users
  * @access  Private (admin only)

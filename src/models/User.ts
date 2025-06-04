@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { AccountStatus } from "../@types/express/enums";
 
 export interface IUser extends Document {

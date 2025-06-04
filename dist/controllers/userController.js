@@ -41,7 +41,7 @@ const updateUserProfile = async (req, res) => {
                 phone: user.phone,
                 address: user.address,
                 role: user.role,
-                AccountStatus: user.accountStatus,
+                accountStatus: user.accountStatus,
                 createdAt: user.createdAt,
             },
         });
