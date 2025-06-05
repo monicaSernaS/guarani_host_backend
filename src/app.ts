@@ -16,7 +16,6 @@ import hostTourRoutes from "./routes/hostTourRoutes";
 import publicPropertyRoutes from "./routes/publicPropertyRoutes";
 import publicTourRoutes from "./routes/publicTourRoutes";
 
-
 // Load environment variables from .env file
 dotenv.config();
 
@@ -34,7 +33,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));; // Enable CORS for all routes
+}));
 app.use(express.json()); // Parse incoming JSON requests
 app.use("/uploads", express.static("uploads")); // Serve uploaded images if needed
 
@@ -47,7 +46,13 @@ app.use("/tours", publicTourRoutes);          // GET public tour packages
 // Auth routes - registration, login, password recovery
 app.use("/api/auth", authRoutes);
 
-// Admin routes - for managing users, properties, tours, and bookings
+// ⭐ ADMIN ROUTES WITHOUT /api PREFIX (for frontend compatibility) ⭐
+app.use("/admin", adminRoutes);               // Admin: users & hosts management
+app.use("/admin", adminBookingRoutes);        // Admin: bookings CRUD and filtering
+app.use("/admin", adminPropertyRoutes);       // Admin: properties CRUD
+app.use("/admin", tourRoutes);                // Admin: tour packages (maps to /admin/tour-packages)
+
+// Admin routes WITH /api prefix (keeping existing for API consistency)
 app.use("/api/admin", adminRoutes);               // Admin-only: users & hosts
 app.use("/api/admin", adminBookingRoutes);        // Admin-only: bookings CRUD and filtering
 app.use("/api/admin", adminPropertyRoutes);       // Admin-only: properties
