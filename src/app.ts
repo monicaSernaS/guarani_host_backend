@@ -30,8 +30,8 @@ app.use("/uploads", express.static("uploads")); // Serve uploaded images if need
 // =============== Route Mounting ===============
 
 // Public routes - accessible to all users (visitors, users, hosts, admins)
-app.use("/api/properties", publicPropertyRoutes); // GET public properties
-app.use("/api/tours", publicTourRoutes);          // GET public tour packages
+app.use("/properties", publicPropertyRoutes); // GET public properties
+app.use("/tours", publicTourRoutes);          // GET public tour packages
 
 // Auth routes - registration, login, password recovery
 app.use("/api/auth", authRoutes);
