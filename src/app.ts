@@ -23,7 +23,18 @@ dotenv.config();
 const app = express();
 
 // =============== Global Middlewares ===============
-app.use(cors()); // Enable CORS for all routes
+app.use(cors({
+    origin: [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'https://guarani-host-app.web.app',
+    'https://guarani-host-app.firebaseapp.com'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));; // Enable CORS for all routes
 app.use(express.json()); // Parse incoming JSON requests
 app.use("/uploads", express.static("uploads")); // Serve uploaded images if needed
 
