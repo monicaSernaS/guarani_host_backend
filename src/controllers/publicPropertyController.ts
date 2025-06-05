@@ -10,7 +10,7 @@ import { PropertyStatus } from '../@types/express/enums'; // ✅ Enum usage for 
 export const getAvailableProperties = async (_req: Request, res: Response): Promise<void> => {
   try {
     // Query all properties marked as 'available'
-    const properties = await Property.find({ status: PropertyStatus.AVAILABLE })
+    const properties = await Property.find({ status: 'available' })
       .populate('host', 'firstName lastName email') // Include host basic info
       .sort({ createdAt: -1 }); // Newest properties first
 

@@ -9,7 +9,7 @@ import { TourPackageStatus } from '../@types/express/enums';
  */
 export const getAvailableTourPackages = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const tours = await TourPackage.find({ status: TourPackageStatus.AVAILABLE })
+    const tours = await TourPackage.find({ status: 'available' })
       .populate('host', 'firstName lastName email')
       .sort({ createdAt: -1 });
 
